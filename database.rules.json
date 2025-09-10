@@ -1,0 +1,7 @@
+{
+  "rules": {
+    // Allow any authenticated user to read/write anywhere:
+    ".read": "auth != null",
+    ".write": "auth != null"
+  }
+}
