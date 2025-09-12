@@ -10,6 +10,7 @@ import TeacherDashboard from './TeacherDashboard';
 import TeacherGamePage   from './TeacherGamePage';
 import GamePage from './GamePage';
 import TeacherLogin    from './TeacherLogin';
+import TeacherProfile from './TeacherProfile';
 
 export default function App() {
   const [user, setUser] = useState(null);
@@ -42,6 +43,7 @@ export default function App() {
   return (
     <BrowserRouter>
       <Routes>
+        <Route path="/teacher/profile" element={<TeacherProfile />} />
 
         {/* Teacher login */}
         <Route path="/teacher/login" element={<TeacherLogin />} />
