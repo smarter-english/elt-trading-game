@@ -14,15 +14,33 @@ import { onAuthStateChanged, signOut } from 'firebase/auth';
 import { Link, useNavigate } from 'react-router-dom';
 
 export default function TeacherDashboard() {
-  const [user, setUser] = useState(null);
+  const [user, setUser]       = useState(null);
+  const [profile, setProfile] = useState(null); // { firstName, lastName, email, role }
+  const [role, setRole]       = useState(null);
   const [newGameName, setNewGameName] = useState('');
   const [myGames, setMyGames] = useState([]);
   const navigate = useNavigate();
 
-  // Track auth state so we can show the teacher’s name/email and query their games
+  // Track auth state
   useEffect(() => {
-    const unsub = onAuthStateChanged(auth, (u) => setUser(u));
-    return unsub;
+    let offProfile = () => {};
+    const unsub = onAuthStateChanged(auth, (u) => {
+      setUser(u);
+      setProfile(null);
+      setRole(null);
+      if (u) {
+        const profRef = ref(database, `users/${u.uid}`);
+        offProfile = onValue(profRef, (snap) => {
+          const p = snap.val() || null;
+          setProfile(p);
+          setRole(p?.role || null);
+        });
+      }
+    });
+    return () => {
+      unsub();
+      offProfile();
+    };
   }, []);
 
   // Load only this teacher's games once we have a user
@@ -40,8 +58,11 @@ export default function TeacherDashboard() {
     });
   }, [user]);
 
+  const isAdmin   = role === 'admin';
+  const isTeacher = role === 'teacher' || isAdmin;
+
   const handleCreateGame = async () => {
-    if (!user) return;
+    if (!user || !isTeacher) return;
     const code = Math.random().toString(36).substring(2, 8).toUpperCase();
     const newGameRef = push(ref(database, 'games'));
     const gameId = newGameRef.key;
@@ -65,7 +86,10 @@ export default function TeacherDashboard() {
     navigate('/teacher/login');
   };
 
-  const userLabel = user?.displayName || user?.email || 'Teacher';
+  const userLabel =
+    (profile?.firstName || profile?.lastName)
+      ? `${profile.firstName ?? ''} ${profile.lastName ?? ''}`.trim()
+      : (user?.displayName || user?.email || 'Teacher');
 
   return (
     <div style={{ padding: 20 }}>
@@ -78,32 +102,45 @@ export default function TeacherDashboard() {
           marginBottom: 12,
         }}
       >
-        <h2 style={{ margin: 0 }}>{userLabel}'s Dashboard</h2>
+        <h2 style={{ margin: 0 }}>{userLabel || 'Teacher'}'s Dashboard</h2>
         <div>
-          <button onClick={() => navigate('/teacher/login')} style={{ marginRight: 8 }}>
-            Teacher Login
+          <button onClick={() => navigate('/teacher/profile')} style={{ marginRight: 8 }}>
+            Profile
           </button>
-          <button onClick={handleLogout}>Log out</button>
-          <button onClick={() => navigate('/teacher/profile')} style={{ marginRight: 8 }}>Profile</button>
           <button onClick={handleLogout}>Log out</button>
         </div>
       </div>
 
+      {/* Role status / guidance */}
+      {!isTeacher && (
+        <div style={{ background: '#fff6e5', border: '1px solid #ffd8a8', padding: 12, borderRadius: 6, marginBottom: 12 }}>
+          {role === 'pending_teacher' ? (
+            <span>Your teacher account is <strong>pending approval</strong>. An admin will enable access soon.</span>
+          ) : (
+            <span>This account is <strong>not a teacher</strong>. If you applied, please wait for approval or contact an admin.</span>
+          )}
+        </div>
+      )}
+
       {/* Create Game */}
-      <div style={{ margin: '1em 0' }}>
+      <div style={{ margin: '1em 0', opacity: isTeacher ? 1 : 0.6 }}>
         <input
           type="text"
           placeholder="New Game Name"
           value={newGameName}
           onChange={(e) => setNewGameName(e.target.value)}
           style={{ marginRight: 8 }}
+          disabled={!isTeacher}
         />
-        <button onClick={handleCreateGame} disabled={!user}>
+        <button onClick={handleCreateGame} disabled={!isTeacher}>
           Create Game
         </button>
       </div>
 
       <h3>My Games & Codes</h3>
+      {!isTeacher && myGames.length === 0 && (
+        <p style={{ color: '#555' }}>No games yet. You’ll see your games here once your account is approved.</p>
+      )}
       <ul>
         {myGames.map((game) => (
           <li key={game.id} style={{ marginBottom: 16 }}>
@@ -120,7 +157,7 @@ export default function TeacherDashboard() {
                 <p style={{ margin: '4px 0' }}>Month {game.currentRound + 1}</p>
               </div>
               <Link to={`/teacher/game/${game.id}`}>
-                <button>Manage Game</button>
+                <button disabled={!isTeacher}>Manage Game</button>
               </Link>
             </div>
           </li>

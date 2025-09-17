@@ -106,7 +106,7 @@ export default function TeacherGamePage() {
   return (
     <div style={{ padding: 20 }}>
       <button onClick={() => navigate('/teacher/dashboard')}>&larr; Back to Dashboard</button>
-      <h2>{name}</h2>
+      <h2>Game: {game?.name}</h2>
       <p>Month {currentRound + 1} &bull; State: <em>{state}</em></p>
 
       {/* Headlines in trading vs review */}

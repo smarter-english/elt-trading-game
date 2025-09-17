@@ -2,83 +2,61 @@
   "rules": {
     "constants": {
       ".read": true,
-      ".write": "root.child('admins').child(auth.uid).val() === true"
-    },
-
-    "admins": {
-      ".read": "root.child('admins').child(auth.uid).val() === true",
-      "$uid": {
-        ".write": "root.child('admins').child(auth.uid).val() === true"
-      }
-    },
-
-    "teachers": {
-      // Only admins can list all teachers
-      ".read": "root.child('admins').child(auth.uid).val() === true",
-      "$uid": {
-        // Admins can manage teacher flags; a teacher can read their own flag
-        ".read": "auth != null && (auth.uid === $uid || root.child('admins').child(auth.uid).val() === true)",
-        ".write": "root.child('admins').child(auth.uid).val() === true"
-      }
+      ".write": "root.child('users').child(auth.uid).child('role').val() === 'admin'"
     },
 
     "users": {
       "$uid": {
-        // Owner can read/write their own profile; admins can read/write any
-        ".read": "auth != null && (auth.uid === $uid || root.child('admins').child(auth.uid).val() === true)",
-        ".write": "auth != null && (auth.uid === $uid || root.child('admins').child(auth.uid).val() === true)"
+        ".read": "auth != null && (auth.uid === $uid || root.child('users').child(auth.uid).child('role').val() === 'admin')",
+        ".write": "auth != null && (auth.uid === $uid || root.child('users').child(auth.uid).child('role').val() === 'admin')"
       }
     },
 
     "gamesByCode": {
       ".read": "auth != null",
-      ".write": "root.child('teachers').child(auth.uid).val() === true || root.child('admins').child(auth.uid).val() === true"
+      ".write": "auth != null && (root.child('users').child(auth.uid).child('role').val() === 'teacher' || root.child('users').child(auth.uid).child('role').val() === 'admin')"
     },
 
     "games": {
       ".read": "auth != null",
+      ".indexOn": ["createdBy"],
 
       "$gameId": {
-        // Allow CREATE of a new game node by a teacher/admin, but only if they set createdBy = auth.uid.
-        ".write": "(root.child('teachers').child(auth.uid).val() === true || root.child('admins').child(auth.uid).val() === true) && !data.exists() && newData.child('createdBy').val() === auth.uid",
+        // CREATE allowed for teacher/admin if setting createdBy = auth.uid
+        // UPDATE allowed for admin or the original creator
+        ".write": "auth != null && ((!data.exists() && (root.child('users').child(auth.uid).child('role').val() === 'teacher' || root.child('users').child(auth.uid).child('role').val() === 'admin') && newData.child('createdBy').val() === auth.uid) || (data.exists() && (root.child('users').child(auth.uid).child('role').val() === 'admin' || data.child('createdBy').val() === auth.uid)))",
 
-        // Fields the creator (or admin) may update after creation
         "name": {
-          ".write": "root.child('admins').child(auth.uid).val() === true || root.child('games').child($gameId).child('createdBy').val() === auth.uid"
+          ".write": "auth != null && (root.child('users').child(auth.uid).child('role').val() === 'admin' || root.child('games').child($gameId).child('createdBy').val() === auth.uid)"
         },
         "currentRound": {
-          ".write": "root.child('admins').child(auth.uid).val() === true || root.child('games').child($gameId).child('createdBy').val() === auth.uid"
+          ".write": "auth != null && (root.child('users').child(auth.uid).child('role').val() === 'admin' || root.child('games').child($gameId).child('createdBy').val() === auth.uid)"
         },
         "state": {
-          ".write": "root.child('admins').child(auth.uid).val() === true || root.child('games').child($gameId).child('createdBy').val() === auth.uid"
+          ".write": "auth != null && (root.child('users').child(auth.uid).child('role').val() === 'admin' || root.child('games').child($gameId).child('createdBy').val() === auth.uid)"
         },
         "code": {
-          ".write": "root.child('admins').child(auth.uid).val() === true || root.child('games').child($gameId).child('createdBy').val() === auth.uid"
+          ".write": "auth != null && (root.child('users').child(auth.uid).child('role').val() === 'admin' || root.child('games').child($gameId).child('createdBy').val() === auth.uid)"
         },
 
-        // TEAMS: student joins write their own entry; creator/admin can also manage
         "teams": {
           "$uid": {
             ".read": "auth != null",
-            ".write": "auth.uid === $uid || root.child('admins').child(auth.uid).val() === true || root.child('games').child($gameId).child('createdBy').val() === auth.uid"
+            ".write": "auth != null && (auth.uid === $uid || root.child('users').child(auth.uid).child('role').val() === 'admin' || root.child('games').child($gameId).child('createdBy').val() === auth.uid)"
           }
         },
 
-        // PORTFOLIOS: owner can read; creator/admin can read; writes limited:
-        // - owner: only when state == 'trading'
-        // - creator/admin: allowed (e.g., liquidation, resets)
         "portfolios": {
           "$uid": {
-            ".read": "auth != null && (auth.uid === $uid || root.child('admins').child(auth.uid).val() === true || root.child('games').child($gameId).child('createdBy').val() === auth.uid)",
-            ".write": "(auth.uid === $uid && root.child('games').child($gameId).child('state').val() === 'trading') || root.child('admins').child(auth.uid).val() === true || root.child('games').child($gameId).child('createdBy').val() === auth.uid"
+            ".read": "auth != null && (auth.uid === $uid || root.child('users').child(auth.uid).child('role').val() === 'admin' || root.child('games').child($gameId).child('createdBy').val() === auth.uid)",
+            ".write": "auth != null && ((auth.uid === $uid && root.child('games').child($gameId).child('state').val() === 'trading') || root.child('users').child(auth.uid).child('role').val() === 'admin' || root.child('games').child($gameId).child('createdBy').val() === auth.uid)"
           }
         },
 
-        // TRADES log (optional): same pattern as portfolios
         "trades": {
           "$uid": {
-            ".read": "auth != null && (auth.uid === $uid || root.child('admins').child(auth.uid).val() === true || root.child('games').child($gameId).child('createdBy').val() === auth.uid)",
-            ".write": "(auth.uid === $uid && root.child('games').child($gameId).child('state').val() === 'trading') || root.child('admins').child(auth.uid).val() === true || root.child('games').child($gameId).child('createdBy').val() === auth.uid"
+            ".read": "auth != null && (auth.uid === $uid || root.child('users').child(auth.uid).child('role').val() === 'admin' || root.child('games').child($gameId).child('createdBy').val() === auth.uid)",
+            ".write": "auth != null && ((auth.uid === $uid && root.child('games').child($gameId).child('state').val() === 'trading') || root.child('users').child(auth.uid).child('role').val() === 'admin' || root.child('games').child($gameId).child('createdBy').val() === auth.uid)"
           }
         }
       }
