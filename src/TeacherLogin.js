@@ -9,15 +9,17 @@ import {
 } from 'firebase/auth';
 import { ref, onValue } from 'firebase/database';
 
-export default function TeacherLogin() {
-  const [email, setEmail]           = useState('');
-  const [password, setPassword]     = useState('');
-  const [submitting, setSubmitting] = useState(false);
-  const [error, setError]           = useState('');
+const DEBUG_LOGIN = false;
 
-  const [user, setUser]             = useState(null);
-  const [role, setRole]             = useState(null); // 'admin' | 'teacher' | 'pending_teacher' | 'student' | null
-  const [profile, setProfile]       = useState(null);
+export default function TeacherLogin() {
+  const [email, setEmail]             = useState('');
+  const [password, setPassword]       = useState('');
+  const [submitting, setSubmitting]   = useState(false);
+  const [error, setError]             = useState('');
+
+  const [user, setUser]               = useState(null);
+  const [role, setRole]               = useState(null); // 'admin' | 'teacher' | 'pending_teacher' | 'student' | null
+  const [profile, setProfile]         = useState(null);
   const [loadingRole, setLoadingRole] = useState(false);
 
   const navigate = useNavigate();
@@ -30,6 +32,13 @@ export default function TeacherLogin() {
       setError('');
       setRole(null);
       setProfile(null);
+      setLoadingRole(false);
+
+      if (DEBUG_LOGIN) console.log('[TeacherLogin] auth state:', u?.uid || null);
+
+      // Clean up any prior listener
+      offProfile();
+
       if (u) {
         setLoadingRole(true);
         const profRef = ref(database, `users/${u.uid}`);
@@ -40,11 +49,13 @@ export default function TeacherLogin() {
             setProfile(p);
             setRole(p?.role || null);
             setLoadingRole(false);
+            if (DEBUG_LOGIN) console.log('[TeacherLogin] role loaded:', p?.role);
           },
           () => setLoadingRole(false)
         );
       }
     });
+
     return () => {
       unsub();
       offProfile();
@@ -60,16 +71,20 @@ export default function TeacherLogin() {
       // onAuthStateChanged will populate user/role
     } catch (err) {
       setError(err?.message || 'Login failed');
+      if (DEBUG_LOGIN) console.warn('[TeacherLogin] login error:', err);
     } finally {
       setSubmitting(false);
     }
   };
 
   const handleLogout = async () => {
-    await signOut(auth);
-    setEmail('');
-    setPassword('');
-    navOnceRef.current = false; // reset guard on logout
+    try {
+      await signOut(auth);
+    } finally {
+      setEmail('');
+      setPassword('');
+      navOnceRef.current = false; // reset guard on logout
+    }
   };
 
   const isAdmin   = role === 'admin';
@@ -80,22 +95,31 @@ export default function TeacherLogin() {
       ? `${profile.firstName ?? ''} ${profile.lastName ?? ''}`.trim()
       : (user?.displayName || user?.email || 'Teacher');
 
-  // ⛔ Removed auto-redirect effect to avoid loops in StrictMode/onValue churn
+  // ⛔ Stay passive: no auto-redirect here
 
   const handleGoDashboard = () => {
-    if (!isTeacher) return;
+    if (!isTeacher || loadingRole) return;
     if (navOnceRef.current) return; // guard multiple calls
     navOnceRef.current = true;
-    console.log('[TeacherLogin] Navigating to /teacher/dashboard for role:', role);
-    navigate('/teacher/dashboard'); // no replace → avoids replaceState spam
+    if (DEBUG_LOGIN) console.log('[TeacherLogin] Navigating to /teacher/dashboard for role:', role);
+    navigate('/teacher/dashboard'); // no replace → avoids replaceState spam in Safari
   };
 
   return (
-    <div style={{ maxWidth: 420, margin: '48px auto', padding: 24, border: '1px solid #ddd', borderRadius: 8 }}>
-      <h2>Teacher sign in</h2>
+    <div style={{ maxWidth: 460, margin: '48px auto', padding: 24, border: '1px solid #ddd', borderRadius: 8 }}>
+      <h2 style={{ marginTop: 0 }}>Teacher sign in</h2>
 
       {user && (
-        <div style={{ background: '#f6f9fe', border: '1px solid #cfe3ff', padding: 12, borderRadius: 6, margin: '12px 0' }}>
+        <div
+          style={{
+            background: '#f6f9fe',
+            border: '1px solid #cfe3ff',
+            padding: 12,
+            borderRadius: 6,
+            margin: '12px 0'
+          }}
+          aria-live="polite"
+        >
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12 }}>
             <div>
               <strong>
@@ -104,6 +128,12 @@ export default function TeacherLogin() {
               <div style={{ fontSize: 13, color: '#555' }}>
                 {userLabel} • {user?.email}
               </div>
+
+              {loadingRole && (
+                <div style={{ color: '#555', marginTop: 6 }}>
+                  Checking your permissions…
+                </div>
+              )}
 
               {!loadingRole && !isTeacher && !isPending && (
                 <div style={{ color: '#b00020', marginTop: 6 }}>
@@ -121,8 +151,9 @@ export default function TeacherLogin() {
               <button
                 type="button"
                 onClick={handleGoDashboard}
-                disabled={!isTeacher}
+                disabled={!isTeacher || loadingRole}
                 style={{ marginRight: 8 }}
+                title={!isTeacher ? 'Teacher/admin access required' : undefined}
               >
                 Go to dashboard
               </button>
@@ -133,7 +164,7 @@ export default function TeacherLogin() {
       )}
 
       {!user && (
-        <form onSubmit={handleLogin}>
+        <form onSubmit={handleLogin} noValidate>
           <label>
             Email<br />
             <input
@@ -143,6 +174,7 @@ export default function TeacherLogin() {
               required
               autoFocus
               style={{ width: '100%' }}
+              autoComplete="username"
             />
           </label>
           <br />
@@ -154,9 +186,16 @@ export default function TeacherLogin() {
               onChange={e => setPassword(e.target.value)}
               required
               style={{ width: '100%' }}
+              autoComplete="current-password"
             />
           </label>
-          {error && <div style={{ color: '#b00020', marginTop: 8 }}>{error}</div>}
+
+          {error && (
+            <div style={{ color: '#b00020', marginTop: 8 }} role="alert">
+              {error}
+            </div>
+          )}
+
           <button type="submit" disabled={submitting} style={{ marginTop: 12, width: '100%' }}>
             {submitting ? 'Signing in…' : 'Sign in'}
           </button>
@@ -166,7 +205,7 @@ export default function TeacherLogin() {
             <button
               type="button"
               onClick={() => navigate('/teacher/apply')}
-              style={{ background: 'none', border: 'none', color: '#06f', cursor: 'pointer', padding: 0 }}
+              style={{ background: 'none', border: 'none', color: '#06f', cursor: 'pointer', padding: 0, textDecoration: 'underline' }}
             >
               Apply here
             </button>

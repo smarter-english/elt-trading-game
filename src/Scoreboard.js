@@ -57,7 +57,7 @@ export default function Scoreboard({ gameId, currentRound }) {
       });
       return unsub;
     }
-  }, [priceMap, profiles, currentRound]);
+  }, [priceMap, profiles, currentRound, gameId]);
 
   return (
     <div>

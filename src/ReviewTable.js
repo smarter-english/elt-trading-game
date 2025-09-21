@@ -3,6 +3,15 @@ import React, { useEffect, useState } from 'react';
 import { database } from './firebase';
 import { ref, get } from 'firebase/database';
 
+// 🔹 Same normalization as TeacherGamePage
+const normName = (s) =>
+  (s || '')
+    .toString()
+    .normalize('NFKD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/[^a-z0-9]/gi, '')
+    .toLowerCase();
+
 export default function ReviewTable({ gameId, highlightedEffects = {} }) {
   const [teams, setTeams] = useState([]);
   const [commodities, setCommodities] = useState([]);
@@ -58,7 +67,8 @@ export default function ReviewTable({ gameId, highlightedEffects = {} }) {
             <td style={{ padding: 8, border: '1px solid #ddd' }}>{c.name}</td>
             {teams.map(t => {
               const qty = positionsMap[t.uid]?.[c.id] ?? 0;
-              const effect = highlightedEffects[c.name]; // 'up' or 'down'
+              // 🔹 Use normalized name for effect lookup
+              const effect = highlightedEffects[normName(c.name)]; // 'up' or 'down'
               let bg = 'transparent';
               if (effect === 'down') {
                 bg = qty < 0 ? '#d4edda' /* green */ : '#f8d7da' /* red */;

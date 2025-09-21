@@ -1,5 +1,5 @@
-import { ref, update, set, push } from 'firebase/database';
-import { database, auth } from './firebase';
+import { ref, set } from 'firebase/database';
+import { database } from './firebase';
 import commodities from './commodities';
 import headlines from './headlines';
 

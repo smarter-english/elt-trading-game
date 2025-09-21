@@ -214,7 +214,7 @@ const headlines = {
       text: "India has announced extensive infrastructure plans",
       effects: [{ commodity: "Steel", change: "up" }]
     }
-  ]
+  ],
   5: [
     {
       text: "Crypto market instability has pushed investors to more traditional investments",

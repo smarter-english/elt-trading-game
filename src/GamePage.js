@@ -65,21 +65,27 @@ export default function GamePage() {
       setCommod(list);
     });
   }, []);
+// Headlines for current round: one-time fetch whenever the round changes
+useEffect(() => {
+  const round = game?.currentRound; // derive outside effect body
+  if (round == null) return;
+  setHeadlineLoading(true);
 
-  // Load headlines for current round
-  useEffect(() => {
-    if (!game) return;
-    setHeadlineLoading(true);
-    return onValue(
-      ref(database, `constants/headlines/${game.currentRound}`),
-      snap => {
-        const data = snap.val();
-        const list = Array.isArray(data) ? data : data ? Object.values(data) : [];
-        setHeadlinesList(list);
-        setHeadlineLoading(false);
-      }
-    );
-  }, [game]);
+  let alive = true;
+  (async () => {
+    try {
+      const snap = await get(ref(database, `constants/headlines/${round}`));
+      const data = snap.val();
+      const list = Array.isArray(data) ? data : data ? Object.values(data) : [];
+      if (alive) setHeadlinesList(list);
+    } finally {
+      if (alive) setHeadlineLoading(false);
+    }
+  })();
+
+  return () => { alive = false; };
+  // ✅ depend only on round
+}, [game?.currentRound]);
 
   if (!game || !portfolio || commodities.length === 0) {
     return <p>Loading…</p>;

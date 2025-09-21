@@ -8,13 +8,24 @@
     "users": {
       "$uid": {
         ".read": "auth != null && (auth.uid === $uid || root.child('users').child(auth.uid).child('role').val() === 'admin')",
-        ".write": "auth != null && (auth.uid === $uid || root.child('users').child(auth.uid).child('role').val() === 'admin')"
+        ".write": "auth != null && (auth.uid === $uid || root.child('users').child(auth.uid).child('role').val() === 'admin')",
+
+        "firstName": { ".validate": "newData.isString() && newData.val().length >= 1 && newData.val().length <= 40" },
+        "lastName":  { ".validate": "newData.isString() && newData.val().length >= 1 && newData.val().length <= 40" },
+        "email":     { ".validate": "newData.isString() && newData.val().matches(/^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/)" },
+        "role":      { ".validate": "newData.isString() && newData.val().matches(/^(admin|teacher|pending_teacher|student)$/)" },
+        "createdAt": { ".validate": "newData.isNumber()" },
+
+        "$other": { ".validate": false }
       }
     },
 
     "gamesByCode": {
       ".read": "auth != null",
-      ".write": "auth != null && (root.child('users').child(auth.uid).child('role').val() === 'teacher' || root.child('users').child(auth.uid).child('role').val() === 'admin')"
+      ".write": "auth != null && (root.child('users').child(auth.uid).child('role').val() === 'teacher' || root.child('users').child(auth.uid).child('role').val() === 'admin')",
+      "$code": {
+        ".validate": "newData.isString() && newData.val().matches(/^[A-Z0-9]{6}$/)"
+      }
     },
 
     "games": {
@@ -22,43 +33,78 @@
       ".indexOn": ["createdBy"],
 
       "$gameId": {
-        // CREATE allowed for teacher/admin if setting createdBy = auth.uid
-        // UPDATE allowed for admin or the original creator
         ".write": "auth != null && ((!data.exists() && (root.child('users').child(auth.uid).child('role').val() === 'teacher' || root.child('users').child(auth.uid).child('role').val() === 'admin') && newData.child('createdBy').val() === auth.uid) || (data.exists() && (root.child('users').child(auth.uid).child('role').val() === 'admin' || data.child('createdBy').val() === auth.uid)))",
 
         "name": {
-          ".write": "auth != null && (root.child('users').child(auth.uid).child('role').val() === 'admin' || root.child('games').child($gameId).child('createdBy').val() === auth.uid)"
+          ".write": "auth != null && (root.child('users').child(auth.uid).child('role').val() === 'admin' || root.child('games').child($gameId).child('createdBy').val() === auth.uid)",
+          ".validate": "newData.isString() && newData.val().length >= 1 && newData.val().length <= 60"
+        },
+        "createdBy": {
+          ".validate": "newData.isString() && newData.val().length >= 1"
         },
         "currentRound": {
-          ".write": "auth != null && (root.child('users').child(auth.uid).child('role').val() === 'admin' || root.child('games').child($gameId).child('createdBy').val() === auth.uid)"
+          ".write": "auth != null && (root.child('users').child(auth.uid).child('role').val() === 'admin' || root.child('games').child($gameId).child('createdBy').val() === auth.uid)",
+          ".validate": "newData.isNumber() && newData.val() >= 0 && newData.val() % 1 == 0"
         },
         "state": {
-          ".write": "auth != null && (root.child('users').child(auth.uid).child('role').val() === 'admin' || root.child('games').child($gameId).child('createdBy').val() === auth.uid)"
+          ".write": "auth != null && (root.child('users').child(auth.uid).child('role').val() === 'admin' || root.child('games').child($gameId).child('createdBy').val() === auth.uid)",
+          ".validate": "newData.isString() && newData.val().matches(/^(trading|review)$/)"
         },
         "code": {
-          ".write": "auth != null && (root.child('users').child(auth.uid).child('role').val() === 'admin' || root.child('games').child($gameId).child('createdBy').val() === auth.uid)"
+          ".write": "auth != null && (root.child('users').child(auth.uid).child('role').val() === 'admin' || root.child('games').child($gameId).child('createdBy').val() === auth.uid)",
+          ".validate": "newData.isString() && newData.val().matches(/^[A-Z0-9]{6}$/)"
         },
 
         "teams": {
+          ".indexOn": ["teamName", "name"],
           "$uid": {
             ".read": "auth != null",
-            ".write": "auth != null && (auth.uid === $uid || root.child('users').child(auth.uid).child('role').val() === 'admin' || root.child('games').child($gameId).child('createdBy').val() === auth.uid)"
+            ".write": "auth != null && (auth.uid === $uid || root.child('users').child(auth.uid).child('role').val() === 'admin' || root.child('games').child($gameId).child('createdBy').val() === auth.uid)",
+
+            "name":      { ".validate": "newData.isString() && newData.val().length >= 2 && newData.val().length <= 30" },
+            "teamName":  { ".validate": "newData.isString() && newData.val().length >= 2 && newData.val().length <= 30" },
+            "password":  { ".validate": "newData.isString() && newData.val().length >= 3 && newData.val().length <= 20" },
+            "joinedAt":  { ".validate": "newData.isNumber()" },
+
+            "$other": { ".validate": false }
           }
         },
 
         "portfolios": {
           "$uid": {
             ".read": "auth != null && (auth.uid === $uid || root.child('users').child(auth.uid).child('role').val() === 'admin' || root.child('games').child($gameId).child('createdBy').val() === auth.uid)",
-            ".write": "auth != null && ((auth.uid === $uid && root.child('games').child($gameId).child('state').val() === 'trading') || root.child('users').child(auth.uid).child('role').val() === 'admin' || root.child('games').child($gameId).child('createdBy').val() === auth.uid)"
+            ".write": "auth != null && ((auth.uid === $uid && root.child('games').child($gameId).child('state').val() === 'trading') || root.child('users').child(auth.uid).child('role').val() === 'admin' || root.child('games').child($gameId).child('createdBy').val() === auth.uid)",
+
+            "cash":      { ".validate": "newData.isNumber()" },
+            "creditCap": { ".validate": "newData.isNumber()" },
+            "positions": {
+              ".validate": "newData.val() == null || newData.hasChildren()",
+              "$cid": { ".validate": "newData.isNumber() && newData.val() % 1 == 0 && newData.val() >= -100000 && newData.val() <= 100000" }
+            },
+
+            "$other": { ".validate": false }
           }
         },
 
         "trades": {
           "$uid": {
             ".read": "auth != null && (auth.uid === $uid || root.child('users').child(auth.uid).child('role').val() === 'admin' || root.child('games').child($gameId).child('createdBy').val() === auth.uid)",
-            ".write": "auth != null && ((auth.uid === $uid && root.child('games').child($gameId).child('state').val() === 'trading') || root.child('users').child(auth.uid).child('role').val() === 'admin' || root.child('games').child($gameId).child('createdBy').val() === auth.uid)"
+            ".write": "auth != null && ((auth.uid === $uid && root.child('games').child($gameId).child('state').val() === 'trading') || root.child('users').child(auth.uid).child('role').val() === 'admin' || root.child('games').child($gameId).child('createdBy').val() === auth.uid)",
+
+            "$tradeId": {
+              "commodityId": { ".validate": "newData.isString() && newData.val().length >= 1 && newData.val().length <= 80" },
+              "action":      { ".validate": "newData.isString() && newData.val().matches(/^(buy|short)$/)" },
+              "qty":         { ".validate": "newData.isNumber() && newData.val() % 1 == 0 && newData.val() >= 1 && newData.val() <= 100000" },
+              "price":       { ".validate": "newData.isNumber() && newData.val() >= 0" },
+              "round":       { ".validate": "newData.isNumber() && newData.val() % 1 == 0 && newData.val() >= 0" },
+              "ts":          { ".validate": "newData.isNumber()" },
+
+              "$other": { ".validate": false }
+            }
           }
-        }
+        },
+
+        "$other": { ".validate": false }
       }
     }
   }

@@ -28,9 +28,8 @@ export default function App() {
       setRoleLoaded(false);
 
       if (!u) {
-        // not signed in → no role to load
         setRoleLoaded(true);
-        offRole(); // noop first time
+        offRole(); // noop safe
         return;
       }
 
@@ -41,7 +40,7 @@ export default function App() {
           setRole(snap.val() ?? null);
           setRoleLoaded(true);
         },
-        () => setRoleLoaded(true) // even on error, unblock UI
+        () => setRoleLoaded(true)
       );
     });
 
@@ -52,25 +51,32 @@ export default function App() {
   }, []);
 
   const isTeacher = role === 'teacher' || role === 'admin';
-
-  // Tiny loader used when a protected route needs role info
   const Loader = <div style={{ padding: 20 }}>Loading…</div>;
 
   return (
     <BrowserRouter>
       <Routes>
-        {/* Public / utility routes */}
+        {/* Public */}
         <Route path="/teacher/login" element={<TeacherLogin />} />
         <Route path="/teacher/apply" element={<TeacherApply />} />
-        <Route path="/teacher/profile" element={<TeacherProfile />} />
+
+        {/* Profile: requires auth but not teacher role */}
+        <Route
+          path="/teacher/profile"
+          element={
+            !authLoaded
+              ? Loader
+              : user
+                ? <TeacherProfile />
+                : <Navigate to="/teacher/login" replace />
+          }
+        />
 
         {/* Root → Lobby */}
         <Route path="/" element={<Navigate to="/lobby" replace />} />
-
-        {/* Lobby is open (students can join and will be provisioned) */}
         <Route path="/lobby" element={<Lobby />} />
 
-        {/* Teacher-only routes: wait until roleLoaded before deciding */}
+        {/* Teacher-only routes (wait for role) */}
         <Route
           path="/teacher/dashboard"
           element={
@@ -100,7 +106,7 @@ export default function App() {
           }
         />
 
-        {/* Student game view: requires any authenticated user */}
+        {/* Student game: any authenticated user */}
         <Route
           path="/game/:gameId"
           element={
