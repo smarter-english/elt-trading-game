@@ -3,7 +3,6 @@ import { database } from './firebase';
 import commodities from './commodities';
 import headlines from './headlines';
 
-
 /**
  * Write the entire commodities array into /constants/commodities
  */

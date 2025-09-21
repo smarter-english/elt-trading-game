@@ -1,11 +1,7 @@
 // src/firebase.js
 import { initializeApp } from 'firebase/app';
-import { getDatabase }     from 'firebase/database';
-import {
-  getAuth,
-  setPersistence,
-  browserSessionPersistence
-} from 'firebase/auth';
+import { getDatabase } from 'firebase/database';
+import { getAuth, setPersistence, browserSessionPersistence } from 'firebase/auth';
 
 const firebaseConfig = {
   apiKey: process.env.REACT_APP_FIREBASE_API_KEY,
@@ -18,12 +14,13 @@ const firebaseConfig = {
   measurementId: process.env.REACT_APP_FIREBASE_MEASUREMENT_ID,
 };
 
-const app      = initializeApp(firebaseConfig);
+const app = initializeApp(firebaseConfig);
 const database = getDatabase(app);
-const auth     = getAuth(app);
+const auth = getAuth(app);
 
 // Use sessionStorage so auth survives a page reload but is cleared when the tab closes
-setPersistence(auth, browserSessionPersistence)
-  .catch(err => console.warn('Auth persistence error', err));
+setPersistence(auth, browserSessionPersistence).catch((err) =>
+  console.warn('Auth persistence error', err)
+);
 
 export { auth, database };

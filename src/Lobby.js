@@ -39,20 +39,12 @@ export default function Lobby() {
       console.log('Provisional email:', provisionalEmail);
 
       try {
-        credential = await createUserWithEmailAndPassword(
-          auth,
-          provisionalEmail,
-          teamPassword
-        );
+        credential = await createUserWithEmailAndPassword(auth, provisionalEmail, teamPassword);
         console.log('Created provisional user:', credential.user.uid);
       } catch (e) {
         console.log('Provisional sign-up failed:', e.code);
         if (e.code === 'auth/email-already-in-use') {
-          credential = await signInWithEmailAndPassword(
-            auth,
-            provisionalEmail,
-            teamPassword
-          );
+          credential = await signInWithEmailAndPassword(auth, provisionalEmail, teamPassword);
           console.log('Signed in provisional user:', credential.user.uid);
         } else {
           throw e;
@@ -103,19 +95,11 @@ export default function Lobby() {
         console.log('Re-auth with correct email:', finalEmail);
         // Try sign-in / sign-up again against finalEmail
         try {
-          credential = await signInWithEmailAndPassword(
-            auth,
-            finalEmail,
-            teamPassword
-          );
+          credential = await signInWithEmailAndPassword(auth, finalEmail, teamPassword);
           console.log('Re-signed in final user:', credential.user.uid);
         } catch (e) {
           console.log('Final sign-in failed, creating account:', e.code);
-          credential = await createUserWithEmailAndPassword(
-            auth,
-            finalEmail,
-            teamPassword
-          );
+          credential = await createUserWithEmailAndPassword(auth, finalEmail, teamPassword);
           console.log('Created final user:', credential.user.uid);
         }
         // Wait for auth

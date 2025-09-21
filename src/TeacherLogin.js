@@ -2,24 +2,20 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { auth, database } from './firebase';
-import {
-  signInWithEmailAndPassword,
-  onAuthStateChanged,
-  signOut,
-} from 'firebase/auth';
+import { signInWithEmailAndPassword, onAuthStateChanged, signOut } from 'firebase/auth';
 import { ref, onValue } from 'firebase/database';
 
 const DEBUG_LOGIN = false;
 
 export default function TeacherLogin() {
-  const [email, setEmail]             = useState('');
-  const [password, setPassword]       = useState('');
-  const [submitting, setSubmitting]   = useState(false);
-  const [error, setError]             = useState('');
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState('');
 
-  const [user, setUser]               = useState(null);
-  const [role, setRole]               = useState(null); // 'admin' | 'teacher' | 'pending_teacher' | 'student' | null
-  const [profile, setProfile]         = useState(null);
+  const [user, setUser] = useState(null);
+  const [role, setRole] = useState(null); // 'admin' | 'teacher' | 'pending_teacher' | 'student' | null
+  const [profile, setProfile] = useState(null);
   const [loadingRole, setLoadingRole] = useState(false);
 
   const navigate = useNavigate();
@@ -87,13 +83,13 @@ export default function TeacherLogin() {
     }
   };
 
-  const isAdmin   = role === 'admin';
+  const isAdmin = role === 'admin';
   const isTeacher = role === 'teacher' || isAdmin;
   const isPending = role === 'pending_teacher';
   const userLabel =
-    (profile?.firstName || profile?.lastName)
+    profile?.firstName || profile?.lastName
       ? `${profile.firstName ?? ''} ${profile.lastName ?? ''}`.trim()
-      : (user?.displayName || user?.email || 'Teacher');
+      : user?.displayName || user?.email || 'Teacher';
 
   // ⛔ Stay passive: no auto-redirect here
 
@@ -106,7 +102,15 @@ export default function TeacherLogin() {
   };
 
   return (
-    <div style={{ maxWidth: 460, margin: '48px auto', padding: 24, border: '1px solid #ddd', borderRadius: 8 }}>
+    <div
+      style={{
+        maxWidth: 460,
+        margin: '48px auto',
+        padding: 24,
+        border: '1px solid #ddd',
+        borderRadius: 8,
+      }}
+    >
       <h2 style={{ marginTop: 0 }}>Teacher sign in</h2>
 
       {user && (
@@ -116,11 +120,18 @@ export default function TeacherLogin() {
             border: '1px solid #cfe3ff',
             padding: 12,
             borderRadius: 6,
-            margin: '12px 0'
+            margin: '12px 0',
           }}
           aria-live="polite"
         >
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12 }}>
+          <div
+            style={{
+              display: 'flex',
+              justifyContent: 'space-between',
+              alignItems: 'center',
+              gap: 12,
+            }}
+          >
             <div>
               <strong>
                 Welcome{isTeacher ? ' (teacher)' : isPending ? ' (pending approval)' : ''}!
@@ -130,9 +141,7 @@ export default function TeacherLogin() {
               </div>
 
               {loadingRole && (
-                <div style={{ color: '#555', marginTop: 6 }}>
-                  Checking your permissions…
-                </div>
+                <div style={{ color: '#555', marginTop: 6 }}>Checking your permissions…</div>
               )}
 
               {!loadingRole && !isTeacher && !isPending && (
@@ -157,7 +166,9 @@ export default function TeacherLogin() {
               >
                 Go to dashboard
               </button>
-              <button type="button" onClick={handleLogout}>Log out</button>
+              <button type="button" onClick={handleLogout}>
+                Log out
+              </button>
             </div>
           </div>
         </div>
@@ -166,11 +177,12 @@ export default function TeacherLogin() {
       {!user && (
         <form onSubmit={handleLogin} noValidate>
           <label>
-            Email<br />
+            Email
+            <br />
             <input
               type="email"
               value={email}
-              onChange={e => setEmail(e.target.value)}
+              onChange={(e) => setEmail(e.target.value)}
               required
               autoFocus
               style={{ width: '100%' }}
@@ -179,11 +191,12 @@ export default function TeacherLogin() {
           </label>
           <br />
           <label>
-            Password<br />
+            Password
+            <br />
             <input
               type="password"
               value={password}
-              onChange={e => setPassword(e.target.value)}
+              onChange={(e) => setPassword(e.target.value)}
               required
               style={{ width: '100%' }}
               autoComplete="current-password"
@@ -205,7 +218,14 @@ export default function TeacherLogin() {
             <button
               type="button"
               onClick={() => navigate('/teacher/apply')}
-              style={{ background: 'none', border: 'none', color: '#06f', cursor: 'pointer', padding: 0, textDecoration: 'underline' }}
+              style={{
+                background: 'none',
+                border: 'none',
+                color: '#06f',
+                cursor: 'pointer',
+                padding: 0,
+                textDecoration: 'underline',
+              }}
             >
               Apply here
             </button>

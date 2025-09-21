@@ -24,7 +24,10 @@ export default function ReviewTable({ gameId, highlightedEffects = {} }) {
       // Load teams and their names
       const teamsSnap = await get(ref(database, `games/${gameId}/teams`));
       const teamsRaw = teamsSnap.val() || {};
-      const teamsArr = Object.entries(teamsRaw).map(([uid, data]) => ({ uid, teamName: data.teamName }));
+      const teamsArr = Object.entries(teamsRaw).map(([uid, data]) => ({
+        uid,
+        teamName: data.teamName,
+      }));
       setTeams(teamsArr);
 
       // Load commodities list
@@ -56,16 +59,18 @@ export default function ReviewTable({ gameId, highlightedEffects = {} }) {
       <thead>
         <tr>
           <th style={{ padding: 8, border: '1px solid #ddd' }}>Commodity</th>
-          {teams.map(t => (
-            <th key={t.uid} style={{ padding: 8, border: '1px solid #ddd' }}>{t.teamName}</th>
+          {teams.map((t) => (
+            <th key={t.uid} style={{ padding: 8, border: '1px solid #ddd' }}>
+              {t.teamName}
+            </th>
           ))}
         </tr>
       </thead>
       <tbody>
-        {commodities.map(c => (
+        {commodities.map((c) => (
           <tr key={c.id}>
             <td style={{ padding: 8, border: '1px solid #ddd' }}>{c.name}</td>
-            {teams.map(t => {
+            {teams.map((t) => {
               const qty = positionsMap[t.uid]?.[c.id] ?? 0;
               // 🔹 Use normalized name for effect lookup
               const effect = highlightedEffects[normName(c.name)]; // 'up' or 'down'
@@ -82,7 +87,7 @@ export default function ReviewTable({ gameId, highlightedEffects = {} }) {
                     textAlign: 'center',
                     padding: 8,
                     border: '1px solid #ddd',
-                    backgroundColor: bg
+                    backgroundColor: bg,
                   }}
                 >
                   {qty}

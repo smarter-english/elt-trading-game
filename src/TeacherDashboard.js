@@ -1,22 +1,14 @@
 // src/TeacherDashboard.js
 import React, { useEffect, useState } from 'react';
 import { auth, database } from './firebase';
-import {
-  ref,
-  push,
-  set,
-  query,
-  orderByChild,
-  equalTo,
-  onValue,
-} from 'firebase/database';
+import { ref, push, set, query, orderByChild, equalTo, onValue } from 'firebase/database';
 import { onAuthStateChanged, signOut } from 'firebase/auth';
 import { Link, useNavigate } from 'react-router-dom';
 
 export default function TeacherDashboard() {
-  const [user, setUser]       = useState(null);
+  const [user, setUser] = useState(null);
   const [profile, setProfile] = useState(null); // { firstName, lastName, email, role }
-  const [role, setRole]       = useState(null);
+  const [role, setRole] = useState(null);
   const [newGameName, setNewGameName] = useState('');
   const [myGames, setMyGames] = useState([]);
   const navigate = useNavigate();
@@ -46,11 +38,7 @@ export default function TeacherDashboard() {
   // Load only this teacher's games once we have a user
   useEffect(() => {
     if (!user) return;
-    const gamesRef = query(
-      ref(database, 'games'),
-      orderByChild('createdBy'),
-      equalTo(user.uid)
-    );
+    const gamesRef = query(ref(database, 'games'), orderByChild('createdBy'), equalTo(user.uid));
     return onValue(gamesRef, (snap) => {
       const data = snap.val() || {};
       const list = Object.entries(data).map(([id, g]) => ({ id, ...g }));
@@ -58,7 +46,7 @@ export default function TeacherDashboard() {
     });
   }, [user]);
 
-  const isAdmin   = role === 'admin';
+  const isAdmin = role === 'admin';
   const isTeacher = role === 'teacher' || isAdmin;
 
   const handleCreateGame = async () => {
@@ -87,9 +75,9 @@ export default function TeacherDashboard() {
   };
 
   const userLabel =
-    (profile?.firstName || profile?.lastName)
+    profile?.firstName || profile?.lastName
       ? `${profile.firstName ?? ''} ${profile.lastName ?? ''}`.trim()
-      : (user?.displayName || user?.email || 'Teacher');
+      : user?.displayName || user?.email || 'Teacher';
 
   return (
     <div style={{ padding: 20 }}>
@@ -113,11 +101,25 @@ export default function TeacherDashboard() {
 
       {/* Role status / guidance */}
       {!isTeacher && (
-        <div style={{ background: '#fff6e5', border: '1px solid #ffd8a8', padding: 12, borderRadius: 6, marginBottom: 12 }}>
+        <div
+          style={{
+            background: '#fff6e5',
+            border: '1px solid #ffd8a8',
+            padding: 12,
+            borderRadius: 6,
+            marginBottom: 12,
+          }}
+        >
           {role === 'pending_teacher' ? (
-            <span>Your teacher account is <strong>pending approval</strong>. An admin will enable access soon.</span>
+            <span>
+              Your teacher account is <strong>pending approval</strong>. An admin will enable access
+              soon.
+            </span>
           ) : (
-            <span>This account is <strong>not a teacher</strong>. If you applied, please wait for approval or contact an admin.</span>
+            <span>
+              This account is <strong>not a teacher</strong>. If you applied, please wait for
+              approval or contact an admin.
+            </span>
           )}
         </div>
       )}
@@ -139,7 +141,9 @@ export default function TeacherDashboard() {
 
       <h3>My Games & Codes</h3>
       {!isTeacher && myGames.length === 0 && (
-        <p style={{ color: '#555' }}>No games yet. You’ll see your games here once your account is approved.</p>
+        <p style={{ color: '#555' }}>
+          No games yet. You’ll see your games here once your account is approved.
+        </p>
       )}
       <ul>
         {myGames.map((game) => (
@@ -152,8 +156,7 @@ export default function TeacherDashboard() {
               }}
             >
               <div>
-                <strong>{game.name}</strong>{' '}
-                <small>(Code: {game.code})</small>
+                <strong>{game.name}</strong> <small>(Code: {game.code})</small>
                 <p style={{ margin: '4px 0' }}>Month {game.currentRound + 1}</p>
               </div>
               <Link to={`/teacher/game/${game.id}`}>

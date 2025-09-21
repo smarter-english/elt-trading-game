@@ -14,12 +14,12 @@ export default function Scoreboard({ gameId, currentRound }) {
 
   useEffect(() => {
     // 1) Load commodity prices
-    get(ref(database, 'constants/commodities')).then(snap => {
+    get(ref(database, 'constants/commodities')).then((snap) => {
       const data = snap.val() || [];
-      setPriceMap(Object.fromEntries(data.map(c => [c.id, c.prices])));
+      setPriceMap(Object.fromEntries(data.map((c) => [c.id, c.prices])));
     });
     // 2) Load user profiles
-    get(ref(database, 'users')).then(snap => {
+    get(ref(database, 'users')).then((snap) => {
       const users = snap.val() || {};
       const map = {};
       Object.entries(users).forEach(([uid, uData]) => {
@@ -32,21 +32,19 @@ export default function Scoreboard({ gameId, currentRound }) {
   useEffect(() => {
     if (priceMap && Object.keys(priceMap).length && profiles) {
       const tradesRef = ref(database, `games/${gameId}/trades`);
-      const unsub = onValue(tradesRef, snap => {
+      const unsub = onValue(tradesRef, (snap) => {
         const allTrades = snap.val() || {};
         const result = Object.entries(allTrades).map(([uid, trades]) => {
           let bal = INITIAL_CAPITAL;
-          Object.values(trades).forEach(t => {
+          Object.values(trades).forEach((t) => {
             const prices = priceMap[t.commodity] || [];
             if (t.round < currentRound) {
               const exit = prices[t.round + 1] ?? t.price;
-              const delta = t.action === 'buy'
-                ? exit - t.price
-                : t.price - exit;
+              const delta = t.action === 'buy' ? exit - t.price : t.price - exit;
               bal += delta * t.quantity;
             } else if (t.round === currentRound) {
               // credit shorts, deduct buys upfront
-              bal += (t.action === 'short' ? t.price * t.quantity : -t.price * t.quantity);
+              bal += t.action === 'short' ? t.price * t.quantity : -t.price * t.quantity;
             }
           });
           return { uid, name: profiles[uid] || uid, balance: bal };

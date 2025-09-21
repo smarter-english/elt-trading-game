@@ -57,7 +57,7 @@ export default function TeacherProfile() {
         firstName,
         lastName,
         role: 'teacher',
-        email: email || user.email || ''
+        email: email || user.email || '',
       });
       setMsg('Profile updated!');
     } catch (err) {
@@ -68,17 +68,43 @@ export default function TeacherProfile() {
   };
 
   return (
-    <div style={{ maxWidth: 420, margin: '48px auto', padding: 24, border: '1px solid #ddd', borderRadius: 8 }}>
+    <div
+      style={{
+        maxWidth: 420,
+        margin: '48px auto',
+        padding: 24,
+        border: '1px solid #ddd',
+        borderRadius: 8,
+      }}
+    >
       <h2>Teacher Profile</h2>
       <form onSubmit={handleSave}>
-        <label>First name<br />
-          <input value={firstName} onChange={e=>setFirst(e.target.value)} required style={{ width:'100%' }} />
-        </label><br />
-        <label>Last name<br />
-          <input value={lastName} onChange={e=>setLast(e.target.value)} required style={{ width:'100%' }} />
-        </label><br />
-        <label>Email<br />
-          <input value={email} disabled style={{ width:'100%', opacity: 0.7 }} />
+        <label>
+          First name
+          <br />
+          <input
+            value={firstName}
+            onChange={(e) => setFirst(e.target.value)}
+            required
+            style={{ width: '100%' }}
+          />
+        </label>
+        <br />
+        <label>
+          Last name
+          <br />
+          <input
+            value={lastName}
+            onChange={(e) => setLast(e.target.value)}
+            required
+            style={{ width: '100%' }}
+          />
+        </label>
+        <br />
+        <label>
+          Email
+          <br />
+          <input value={email} disabled style={{ width: '100%', opacity: 0.7 }} />
         </label>
         <button type="submit" disabled={submitting} style={{ marginTop: 12, width: '100%' }}>
           {submitting ? 'Saving…' : 'Save profile'}

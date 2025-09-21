@@ -15,7 +15,7 @@ import TeacherApply from './TeacherApply';
 
 export default function App() {
   const [user, setUser] = useState(null);
-  const [role, setRole] = useState(null);         // 'admin' | 'teacher' | 'pending_teacher' | 'student' | null
+  const [role, setRole] = useState(null); // 'admin' | 'teacher' | 'pending_teacher' | 'student' | null
   const [roleLoaded, setRoleLoaded] = useState(false);
   const [authLoaded, setAuthLoaded] = useState(false);
 
@@ -64,11 +64,13 @@ export default function App() {
         <Route
           path="/teacher/profile"
           element={
-            !authLoaded
-              ? Loader
-              : user
-                ? <TeacherProfile />
-                : <Navigate to="/teacher/login" replace />
+            !authLoaded ? (
+              Loader
+            ) : user ? (
+              <TeacherProfile />
+            ) : (
+              <Navigate to="/teacher/login" replace />
+            )
           }
         />
 
@@ -80,42 +82,40 @@ export default function App() {
         <Route
           path="/teacher/dashboard"
           element={
-            !authLoaded
-              ? Loader
-              : !user
-                ? <Navigate to="/teacher/login" replace />
-                : !roleLoaded
-                  ? Loader
-                  : isTeacher
-                    ? <TeacherDashboard />
-                    : <Navigate to="/teacher/login" replace />
+            !authLoaded ? (
+              Loader
+            ) : !user ? (
+              <Navigate to="/teacher/login" replace />
+            ) : !roleLoaded ? (
+              Loader
+            ) : isTeacher ? (
+              <TeacherDashboard />
+            ) : (
+              <Navigate to="/teacher/login" replace />
+            )
           }
         />
         <Route
           path="/teacher/game/:gameId"
           element={
-            !authLoaded
-              ? Loader
-              : !user
-                ? <Navigate to="/teacher/login" replace />
-                : !roleLoaded
-                  ? Loader
-                  : isTeacher
-                    ? <TeacherGamePage />
-                    : <Navigate to="/teacher/login" replace />
+            !authLoaded ? (
+              Loader
+            ) : !user ? (
+              <Navigate to="/teacher/login" replace />
+            ) : !roleLoaded ? (
+              Loader
+            ) : isTeacher ? (
+              <TeacherGamePage />
+            ) : (
+              <Navigate to="/teacher/login" replace />
+            )
           }
         />
 
         {/* Student game: any authenticated user */}
         <Route
           path="/game/:gameId"
-          element={
-            !authLoaded
-              ? Loader
-              : user
-                ? <GamePage />
-                : <Navigate to="/lobby" replace />
-          }
+          element={!authLoaded ? Loader : user ? <GamePage /> : <Navigate to="/lobby" replace />}
         />
 
         {/* Fallback */}

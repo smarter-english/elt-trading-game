@@ -7,16 +7,17 @@ import { ref, set } from 'firebase/database';
 
 export default function TeacherApply() {
   const [firstName, setFirst] = useState('');
-  const [lastName, setLast]   = useState('');
-  const [email, setEmail]     = useState('');
-  const [password, setPass]   = useState('');
+  const [lastName, setLast] = useState('');
+  const [email, setEmail] = useState('');
+  const [password, setPass] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [msg, setMsg] = useState('');
   const navigate = useNavigate();
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    setSubmitting(true); setMsg('');
+    setSubmitting(true);
+    setMsg('');
     try {
       const cred = await createUserWithEmailAndPassword(auth, email.trim(), password);
       const { uid } = cred.user;
@@ -27,7 +28,7 @@ export default function TeacherApply() {
         lastName,
         email: email.trim(),
         role: 'pending_teacher',
-        createdAt: Date.now()
+        createdAt: Date.now(),
       });
 
       await signOut(auth);
@@ -41,22 +42,63 @@ export default function TeacherApply() {
   };
 
   return (
-    <div style={{ maxWidth: 420, margin: '48px auto', padding: 24, border: '1px solid #ddd', borderRadius: 8 }}>
+    <div
+      style={{
+        maxWidth: 420,
+        margin: '48px auto',
+        padding: 24,
+        border: '1px solid #ddd',
+        borderRadius: 8,
+      }}
+    >
       <h2>Apply for a Teacher Account</h2>
       <form onSubmit={handleSubmit}>
-        <label>First name<br />
-          <input value={firstName} onChange={e=>setFirst(e.target.value)} required style={{ width:'100%' }} />
-        </label><br />
-        <label>Last name<br />
-          <input value={lastName} onChange={e=>setLast(e.target.value)} required style={{ width:'100%' }} />
-        </label><br />
-        <label>Email<br />
-          <input type="email" value={email} onChange={e=>setEmail(e.target.value)} required style={{ width:'100%' }} />
-        </label><br />
-        <label>Password<br />
-          <input type="password" value={password} onChange={e=>setPass(e.target.value)} required style={{ width:'100%' }} />
+        <label>
+          First name
+          <br />
+          <input
+            value={firstName}
+            onChange={(e) => setFirst(e.target.value)}
+            required
+            style={{ width: '100%' }}
+          />
         </label>
-        <button type="submit" disabled={submitting} style={{ marginTop: 12, width:'100%' }}>
+        <br />
+        <label>
+          Last name
+          <br />
+          <input
+            value={lastName}
+            onChange={(e) => setLast(e.target.value)}
+            required
+            style={{ width: '100%' }}
+          />
+        </label>
+        <br />
+        <label>
+          Email
+          <br />
+          <input
+            type="email"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            required
+            style={{ width: '100%' }}
+          />
+        </label>
+        <br />
+        <label>
+          Password
+          <br />
+          <input
+            type="password"
+            value={password}
+            onChange={(e) => setPass(e.target.value)}
+            required
+            style={{ width: '100%' }}
+          />
+        </label>
+        <button type="submit" disabled={submitting} style={{ marginTop: 12, width: '100%' }}>
           {submitting ? 'Submitting…' : 'Submit'}
         </button>
       </form>

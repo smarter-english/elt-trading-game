@@ -75,7 +75,7 @@ export default function TeacherGamePage() {
     // 1) flip to next month + ensure trading state
     await update(ref(database, `games/${gameId}`), {
       currentRound: nextRound,
-      state: 'trading'
+      state: 'trading',
     });
 
     // 2) fetch all portfolios (one-time)
@@ -103,7 +103,7 @@ export default function TeacherGamePage() {
         return {
           cash: newCash,
           positions: {},
-          creditCap: newCash * CREDIT_MULTIPLIER
+          creditCap: newCash * CREDIT_MULTIPLIER,
         };
       });
     }
@@ -112,7 +112,7 @@ export default function TeacherGamePage() {
   // Toggle review <-> play (no round change)
   const handleToggleReview = async () => {
     await update(ref(database, `games/${gameId}`), {
-      state: state === 'review' ? 'trading' : 'review'
+      state: state === 'review' ? 'trading' : 'review',
     });
   };
 
@@ -134,7 +134,11 @@ export default function TeacherGamePage() {
           {loadingHL ? (
             <span>Loading headlines…</span>
           ) : headlines.length ? (
-            <ul>{headlines.map((h, i) => <li key={i}>{h.text}</li>)}</ul>
+            <ul>
+              {headlines.map((h, i) => (
+                <li key={i}>{h.text}</li>
+              ))}
+            </ul>
           ) : (
             <span>No headlines this round.</span>
           )}
