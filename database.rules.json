@@ -24,7 +24,7 @@
       ".read": "auth != null",
       ".write": "auth != null && (root.child('users').child(auth.uid).child('role').val() === 'teacher' || root.child('users').child(auth.uid).child('role').val() === 'admin')",
       "$code": {
-        // The key ($code) is the 6-char join code; the value is the gameId string
+        // key is 6-char join code; value is the gameId string
         ".validate": "newData.isString() && newData.val().length > 0"
       }
     },
@@ -40,9 +40,7 @@
           ".write": "auth != null && (root.child('users').child(auth.uid).child('role').val() === 'admin' || root.child('games').child($gameId).child('createdBy').val() === auth.uid)",
           ".validate": "newData.isString() && newData.val().length >= 1 && newData.val().length <= 60"
         },
-        "createdBy": {
-          ".validate": "newData.isString() && newData.val().length >= 1"
-        },
+        "createdBy": { ".validate": "newData.isString() && newData.val().length >= 1" },
         "currentRound": {
           ".write": "auth != null && (root.child('users').child(auth.uid).child('role').val() === 'admin' || root.child('games').child($gameId).child('createdBy').val() === auth.uid)",
           ".validate": "newData.isNumber() && newData.val() >= 0 && newData.val() % 1 == 0"
@@ -119,6 +117,17 @@
               }
             },
             "$other": { ".validate": false }
+          }
+        },
+
+        "penalties": {
+          "$round": {
+            "fine": { ".validate": "newData.isNumber() && newData.val() >= 0 && newData.val() % 1 == 0 && newData.val() <= 100000" },
+            "$uid": {
+              ".validate": "newData.hasChildren(['count']) && newData.child('count').isNumber() && newData.child('count').val() >= 0 && newData.child('count').val() % 1 == 0 && newData.child('count').val() <= 50",
+              "count": { ".validate": "newData.isNumber() && newData.val() >= 0 && newData.val() % 1 == 0 && newData.val() <= 50" },
+              "$other": { ".validate": false }
+            }
           }
         },
 

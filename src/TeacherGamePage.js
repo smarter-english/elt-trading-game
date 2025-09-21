@@ -6,6 +6,7 @@ import { ref, onValue, get, update, runTransaction, set } from 'firebase/databas
 import ReviewTable from './ReviewTable';
 
 const CREDIT_MULTIPLIER = 0.5;
+const DEFAULT_FINE = 100; // fallback if no fine is set for this round
 
 // Normalize names so "Crude oil" == "Crude Oil" == "crude-oil"
 const normName = (s) =>
@@ -25,27 +26,37 @@ export default function TeacherGamePage() {
   const [loadingHL, setLoadingHL] = useState(true);
   const [revealed, setRevealed] = useState({});
 
-  // Advancing + status
   const [advancing, setAdvancing] = useState(false);
   const [statusText, setStatusText] = useState('');
   const [statusPersist, setStatusPersist] = useState(false);
 
-  // Standings popup
   const [showStandings, setShowStandings] = useState(false);
   const [standings, setStandings] = useState([]); // [{uid, teamName, cash}]
   const [standingsRound, setStandingsRound] = useState(null);
 
-  // Subscribe to game metadata (state/round/name can change live)
+  // Teams + penalties (current round)
+  const [teams, setTeams] = useState({});
+  const [penalties, setPenalties] = useState({}); // { uid: {count}, fine?: number }
+  const [fine, setFine] = useState(DEFAULT_FINE);
+  const [savingFine, setSavingFine] = useState(false);
+
+  // Subscribe to game metadata
   useEffect(() => {
     const gameRef = ref(database, `games/${gameId}`);
     return onValue(gameRef, (snap) => setGame(snap.val()));
   }, [gameId]);
 
-  // One-time fetch headlines whenever the round changes (constants don't need live listeners)
+  // Teams subscribe
+  useEffect(() => {
+    const tRef = ref(database, `games/${gameId}/teams`);
+    return onValue(tRef, (snap) => setTeams(snap.val() || {}));
+  }, [gameId]);
+
+  // Headlines one-time fetch per round
   useEffect(() => {
     if (!game) return;
     setLoadingHL(true);
-    setRevealed({}); // reset reveal toggles each month
+    setRevealed({});
 
     let alive = true;
     (async () => {
@@ -61,13 +72,24 @@ export default function TeacherGamePage() {
     return () => {
       alive = false;
     };
-  }, [game?.currentRound, game]); // re-run when month changes
+  }, [game?.currentRound, game]);
+
+  // Load penalties (and fine) for current round
+  useEffect(() => {
+    if (!game) return;
+    const pRef = ref(database, `games/${gameId}/penalties/${game.currentRound}`);
+    return onValue(pRef, (snap) => {
+      const obj = snap.val() || {};
+      setPenalties(obj);
+      const f = Math.max(0, Math.floor(Number(obj?.fine ?? DEFAULT_FINE)));
+      setFine(f);
+    });
+  }, [gameId, game?.currentRound, game]);
 
   if (!game) return <p>Loading game…</p>;
-
   const { currentRound, state } = game;
 
-  // Build map of revealed effects => { [normalizedCommodityName]: 'up'|'down' }
+  // Map of revealed effects for ReviewTable highlighting
   const revealedMap = {};
   Object.entries(revealed).forEach(([idx, isOn]) => {
     if (isOn && Array.isArray(headlines[idx]?.effects)) {
@@ -78,7 +100,6 @@ export default function TeacherGamePage() {
     }
   });
 
-  // Fetch & show saved standings for the current (post-advance) round
   const openStandings = async () => {
     const snap = await get(ref(database, `games/${gameId}/standings/${game.currentRound}`));
     const saved = snap.val();
@@ -92,11 +113,29 @@ export default function TeacherGamePage() {
     }
   };
 
-  // Advance round and liquidate portfolios, then save standings snapshot + return to trading
+  // Save one team's penalty count
+  const savePenalty = async (uid, value) => {
+    const n = Math.max(0, Math.min(50, Math.floor(Number(value) || 0)));
+    await set(ref(database, `games/${gameId}/penalties/${currentRound}/${uid}`), { count: n });
+  };
+
+  // Save fine for the round
+  const saveFine = async (value) => {
+    const n = Math.max(0, Math.min(100000, Math.floor(Number(value) || 0)));
+    setFine(n);
+    setSavingFine(true);
+    try {
+      await set(ref(database, `games/${gameId}/penalties/${currentRound}/fine`), n);
+    } finally {
+      setSavingFine(false);
+    }
+  };
+
+  // Advance: liquidate → apply penalties using this round's fine → snapshot standings
   const handleAdvance = async () => {
     if (
       !window.confirm(
-        `Advance to Month ${currentRound + 2} and liquidate all teams' positions at next-month prices?`
+        `Advance to Month ${currentRound + 2} and liquidate all teams' positions at next-month prices?\nPenalties for Month ${currentRound} will also be applied (fine = $${fine}).`
       )
     ) {
       return;
@@ -114,22 +153,25 @@ export default function TeacherGamePage() {
         state: 'trading'
       });
 
-      // 2) fetch commodity data (one-time)
+      // 2) fetch commodities
       const commSnap = await get(ref(database, 'constants/commodities'));
       const raw = commSnap.val() || {};
       const commodities = Array.isArray(raw)
         ? raw.map((c, i) => ({ id: c.id || `commodity-${i}`, ...c }))
         : Object.entries(raw).map(([id, c]) => ({ id, ...c }));
 
-      // 3) fetch all portfolios and teams (one-time)
-      const [pfSnap, teamsSnap] = await Promise.all([
+      // 3) fetch portfolios, teams, penalties (for this round)
+      const [pfSnap, teamsSnap, penSnap] = await Promise.all([
         get(ref(database, `games/${gameId}/portfolios`)),
-        get(ref(database, `games/${gameId}/teams`))
+        get(ref(database, `games/${gameId}/teams`)),
+        get(ref(database, `games/${gameId}/penalties/${currentRound}`))
       ]);
       const portfolios = pfSnap.val() || {};
-      const teams = teamsSnap.val() || {};
+      const teamsNow = teamsSnap.val() || {};
+      const penaltiesNow = penSnap.val() || {};
+      const fineNow = Math.max(0, Math.floor(Number(penaltiesNow?.fine ?? fine ?? DEFAULT_FINE)));
 
-      // 4) liquidate each portfolio at *next* round prices and reset creditCap
+      // 4) liquidate & apply penalties
       for (const [uid] of Object.entries(portfolios)) {
         await runTransaction(ref(database, `games/${gameId}/portfolios/${uid}`), (curr) => {
           if (!curr) return curr;
@@ -140,6 +182,10 @@ export default function TeacherGamePage() {
             const price = comm?.prices?.[nextRound] ?? 0;
             newCash += qty * price;
           });
+
+          const count = Math.max(0, Math.floor(Number(penaltiesNow?.[uid]?.count) || 0));
+          newCash -= count * fineNow;
+
           return {
             cash: newCash,
             positions: {},
@@ -148,12 +194,12 @@ export default function TeacherGamePage() {
         });
       }
 
-      // 5) re-read portfolios AFTER liquidation to compute standings
+      // 5) standings snapshot after penalties
       const pfSnap2 = await get(ref(database, `games/${gameId}/portfolios`));
       const portfoliosAfter = pfSnap2.val() || {};
 
-      const list = Object.keys(teams).map((uid) => {
-        const t = teams[uid] || {};
+      const list = Object.keys(teamsNow).map((uid) => {
+        const t = teamsNow[uid] || {};
         const p = portfoliosAfter[uid] || {};
         return {
           uid,
@@ -161,37 +207,27 @@ export default function TeacherGamePage() {
           cash: typeof p.cash === 'number' ? p.cash : 0
         };
       });
-
-      // Include any portfolio that exists but team record is missing (edge case)
       Object.keys(portfoliosAfter).forEach((uid) => {
         if (!list.find((x) => x.uid === uid)) {
           const p = portfoliosAfter[uid] || {};
-          list.push({
-            uid,
-            teamName: '(Team)',
-            cash: typeof p.cash === 'number' ? p.cash : 0
-          });
+          list.push({ uid, teamName: '(Team)', cash: typeof p.cash === 'number' ? p.cash : 0 });
         }
       });
-
-      // Sort by cash desc
       list.sort((a, b) => b.cash - a.cash);
 
-      // 6) save snapshot to games/{gameId}/standings/{nextRound}
       await set(ref(database, `games/${gameId}/standings/${nextRound}`), {
         round: nextRound,
         computedAt: Date.now(),
         list
       });
 
-      // 7) show persistent banner + allow popup
       setStatusText(
-        `✅ Advanced to Month ${nextRound + 1}. Standings snapshot saved for Month ${nextRound}.`
+        `✅ Advanced to Month ${nextRound + 1}. Penalties applied for Month ${currentRound} (fine $${fineNow}). Standings saved for Month ${nextRound}.`
       );
       setStatusPersist(true);
       setStandings(list);
       setStandingsRound(nextRound);
-      setShowStandings(true); // auto-open; close when ready
+      setShowStandings(true);
     } catch (err) {
       console.error('Advance failed:', err);
       setStatusText(`❌ Advance failed: ${err?.message || 'Unknown error'}`);
@@ -201,7 +237,7 @@ export default function TeacherGamePage() {
     }
   };
 
-  // Toggle review <-> play (no round change)
+  // Toggle review <-> play
   const handleToggleReview = async () => {
     if (advancing) return;
     await update(ref(database, `games/${gameId}`), {
@@ -219,7 +255,7 @@ export default function TeacherGamePage() {
         Month {currentRound + 1} &bull; State: <em>{state}</em>
       </p>
 
-      {/* Status banner (persistent until dismissed if statusPersist) */}
+      {/* Status banner */}
       {statusText && (
         <div
           style={{
@@ -247,7 +283,7 @@ export default function TeacherGamePage() {
         </div>
       )}
 
-      {/* Headlines: list during trading; table with reveal during review */}
+      {/* Headlines or Review UI */}
       {state !== 'review' ? (
         <div style={{ border: '1px solid #ccc', padding: 12, margin: '1em 0' }}>
           {loadingHL ? (
@@ -263,40 +299,109 @@ export default function TeacherGamePage() {
           )}
         </div>
       ) : (
-        <table style={{ width: '100%', borderCollapse: 'collapse', margin: '1em 0' }}>
-          <thead>
-            <tr>
-              <th>Headline</th>
-              <th>Commodity</th>
-              <th>Price Change</th>
-              <th>Reveal</th>
-            </tr>
-          </thead>
-          <tbody>
-            {headlines.map((h, idx) => {
-              const isRevealed = !!revealed[idx];
-              const effect = Array.isArray(h.effects) ? h.effects[0] : {};
-              const commodity = effect.commodity || '---';
-              const change = effect.change || '---';
-              return (
-                <tr key={idx}>
-                  <td style={{ padding: 8, border: '1px solid #ddd' }}>{h.text}</td>
-                  <td style={{ padding: 8, border: '1px solid #ddd' }}>
-                    {isRevealed ? commodity : '•••'}
-                  </td>
-                  <td style={{ padding: 8, border: '1px solid #ddd' }}>
-                    {isRevealed ? change : '•••'}
-                  </td>
-                  <td style={{ padding: 8, border: '1px solid #ddd' }}>
-                    <button onClick={() => toggleReveal(idx)} disabled={advancing}>
-                      {isRevealed ? 'Hide' : 'Show'}
-                    </button>
-                  </td>
+        <>
+          {/* Reveal table */}
+          <table style={{ width: '100%', borderCollapse: 'collapse', margin: '1em 0' }}>
+            <thead>
+              <tr>
+                <th>Headline</th>
+                <th>Commodity</th>
+                <th>Price Change</th>
+                <th>Reveal</th>
+              </tr>
+            </thead>
+            <tbody>
+              {headlines.map((h, idx) => {
+                const isRevealed = !!revealed[idx];
+                const effect = Array.isArray(h.effects) ? h.effects[0] : {};
+                const commodity = effect.commodity || '---';
+                const change = effect.change || '---';
+                return (
+                  <tr key={idx}>
+                    <td style={{ padding: 8, border: '1px solid #ddd' }}>{h.text}</td>
+                    <td style={{ padding: 8, border: '1px solid #ddd' }}>
+                      {isRevealed ? commodity : '•••'}
+                    </td>
+                    <td style={{ padding: 8, border: '1px solid #ddd' }}>
+                      {isRevealed ? change : '•••'}
+                    </td>
+                    <td style={{ padding: 8, border: '1px solid #ddd' }}>
+                      <button onClick={() => toggleReveal(idx)} disabled={advancing}>
+                        {isRevealed ? 'Hide' : 'Show'}
+                      </button>
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+
+          {/* Penalty fine + editor */}
+          <div style={{ border: '1px solid #bbb', padding: 12, borderRadius: 8, marginTop: 12 }}>
+            <div style={{ display: 'flex', gap: 12, alignItems: 'center', marginBottom: 8 }}>
+              <label htmlFor="fine-input">
+                <strong>Penalty fine for Month {currentRound} ($)</strong>
+              </label>
+              <input
+                id="fine-input"
+                type="number"
+                min="0"
+                step="1"
+                style={{ width: 100 }}
+                value={fine}
+                onChange={(e) => setFine(Math.max(0, Math.floor(Number(e.target.value) || 0)))}
+                onBlur={() => saveFine(fine)}
+                disabled={savingFine || advancing}
+              />
+              {savingFine && <span style={{ color: '#666' }}>Saving…</span>}
+            </div>
+
+            <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+              <thead>
+                <tr>
+                  <th style={{ textAlign: 'left', padding: 8, borderBottom: '1px solid #ddd' }}>Team</th>
+                  <th style={{ textAlign: 'center', padding: 8, borderBottom: '1px solid #ddd' }}>
+                    Penalties (Month {currentRound})
+                  </th>
+                  <th style={{ textAlign: 'right', padding: 8, borderBottom: '1px solid #ddd' }}>
+                    Next-month fine
+                  </th>
                 </tr>
-              );
-            })}
-          </tbody>
-        </table>
+              </thead>
+              <tbody>
+                {Object.entries(teams).map(([uid, t]) => {
+                  const name = t.teamName || t.name || '(Team)';
+                  const count = Math.max(0, Math.floor(Number(penalties?.[uid]?.count) || 0));
+                  return (
+                    <tr key={uid}>
+                      <td style={{ padding: 8, borderBottom: '1px solid #f0f0f0' }}>{name}</td>
+                      <td style={{ padding: 8, borderBottom: '1px solid #f0f0f0', textAlign: 'center' }}>
+                        <input
+                          type="number"
+                          min="0"
+                          style={{ width: 70 }}
+                          value={count}
+                          onChange={(e) => savePenalty(uid, e.target.value)}
+                          disabled={advancing}
+                        />
+                      </td>
+                      <td style={{ padding: 8, borderBottom: '1px solid #f0f0f0', textAlign: 'right' }}>
+                        ${ (count * fine).toFixed(2) }
+                      </td>
+                    </tr>
+                  );
+                })}
+                {Object.keys(teams).length === 0 && (
+                  <tr>
+                    <td colSpan="3" style={{ padding: 12, textAlign: 'center', color: '#666' }}>
+                      No teams yet.
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+        </>
       )}
 
       {/* Controls */}
@@ -319,7 +424,6 @@ export default function TeacherGamePage() {
           <ReviewTable gameId={gameId} highlightedEffects={revealedMap} />
         </div>
       )}
-// In your existing TeacherGamePage.js, replace the modal block near the end with this:
 
       {/* Standings modal */}
       {showStandings && (
@@ -383,7 +487,6 @@ export default function TeacherGamePage() {
           </div>
         </div>
       )}
-      
     </div>
   );
 }
