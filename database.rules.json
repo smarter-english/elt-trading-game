@@ -10,18 +10,10 @@
         ".read": "auth != null && (auth.uid === $uid || root.child('users').child(auth.uid).child('role').val() === 'admin')",
         ".write": "auth != null && (auth.uid === $uid || root.child('users').child(auth.uid).child('role').val() === 'admin')",
 
-        "firstName": {
-          ".validate": "newData.isString() && newData.val().length >= 1 && newData.val().length <= 40"
-        },
-        "lastName": {
-          ".validate": "newData.isString() && newData.val().length >= 1 && newData.val().length <= 40"
-        },
-        "email": {
-          ".validate": "newData.isString() && newData.val().matches(/^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/)"
-        },
-        "role": {
-          ".validate": "newData.isString() && newData.val().matches(/^(admin|teacher|pending_teacher|student)$/)"
-        },
+        "firstName": { ".validate": "newData.isString() && newData.val().length >= 1 && newData.val().length <= 40" },
+        "lastName":  { ".validate": "newData.isString() && newData.val().length >= 1 && newData.val().length <= 40" },
+        "email":     { ".validate": "newData.isString() && newData.val().matches(/^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/)" },
+        "role":      { ".validate": "newData.isString() && newData.val().matches(/^(admin|teacher|pending_teacher|student)$/)" },
         "createdAt": { ".validate": "newData.isNumber()" },
 
         "$other": { ".validate": false }
@@ -32,7 +24,8 @@
       ".read": "auth != null",
       ".write": "auth != null && (root.child('users').child(auth.uid).child('role').val() === 'teacher' || root.child('users').child(auth.uid).child('role').val() === 'admin')",
       "$code": {
-        ".validate": "newData.isString() && newData.val().matches(/^[A-Z0-9]{6}$/)"
+        // The key ($code) is the 6-char join code; the value is the gameId string
+        ".validate": "newData.isString() && newData.val().length > 0"
       }
     },
 
@@ -69,16 +62,10 @@
             ".read": "auth != null",
             ".write": "auth != null && (auth.uid === $uid || root.child('users').child(auth.uid).child('role').val() === 'admin' || root.child('games').child($gameId).child('createdBy').val() === auth.uid)",
 
-            "name": {
-              ".validate": "newData.isString() && newData.val().length >= 2 && newData.val().length <= 30"
-            },
-            "teamName": {
-              ".validate": "newData.isString() && newData.val().length >= 2 && newData.val().length <= 30"
-            },
-            "password": {
-              ".validate": "newData.isString() && newData.val().length >= 3 && newData.val().length <= 20"
-            },
-            "joinedAt": { ".validate": "newData.isNumber()" },
+            "name":      { ".validate": "newData.isString() && newData.val().length >= 2 && newData.val().length <= 30" },
+            "teamName":  { ".validate": "newData.isString() && newData.val().length >= 2 && newData.val().length <= 30" },
+            "password":  { ".validate": "newData.isString() && newData.val().length >= 3 && newData.val().length <= 20" },
+            "joinedAt":  { ".validate": "newData.isNumber()" },
 
             "$other": { ".validate": false }
           }
@@ -89,13 +76,11 @@
             ".read": "auth != null && (auth.uid === $uid || root.child('users').child(auth.uid).child('role').val() === 'admin' || root.child('games').child($gameId).child('createdBy').val() === auth.uid)",
             ".write": "auth != null && ((auth.uid === $uid && root.child('games').child($gameId).child('state').val() === 'trading') || root.child('users').child(auth.uid).child('role').val() === 'admin' || root.child('games').child($gameId).child('createdBy').val() === auth.uid)",
 
-            "cash": { ".validate": "newData.isNumber()" },
+            "cash":      { ".validate": "newData.isNumber()" },
             "creditCap": { ".validate": "newData.isNumber()" },
             "positions": {
               ".validate": "newData.val() == null || newData.hasChildren()",
-              "$cid": {
-                ".validate": "newData.isNumber() && newData.val() % 1 == 0 && newData.val() >= -100000 && newData.val() <= 100000"
-              }
+              "$cid": { ".validate": "newData.isNumber() && newData.val() % 1 == 0 && newData.val() >= -100000 && newData.val() <= 100000" }
             },
 
             "$other": { ".validate": false }
@@ -108,23 +93,32 @@
             ".write": "auth != null && ((auth.uid === $uid && root.child('games').child($gameId).child('state').val() === 'trading') || root.child('users').child(auth.uid).child('role').val() === 'admin' || root.child('games').child($gameId).child('createdBy').val() === auth.uid)",
 
             "$tradeId": {
-              "commodityId": {
-                ".validate": "newData.isString() && newData.val().length >= 1 && newData.val().length <= 80"
-              },
-              "action": {
-                ".validate": "newData.isString() && newData.val().matches(/^(buy|short)$/)"
-              },
-              "qty": {
-                ".validate": "newData.isNumber() && newData.val() % 1 == 0 && newData.val() >= 1 && newData.val() <= 100000"
-              },
-              "price": { ".validate": "newData.isNumber() && newData.val() >= 0" },
-              "round": {
-                ".validate": "newData.isNumber() && newData.val() % 1 == 0 && newData.val() >= 0"
-              },
-              "ts": { ".validate": "newData.isNumber()" },
+              "commodityId": { ".validate": "newData.isString() && newData.val().length >= 1 && newData.val().length <= 80" },
+              "action":      { ".validate": "newData.isString() && newData.val().matches(/^(buy|short)$/)" },
+              "qty":         { ".validate": "newData.isNumber() && newData.val() % 1 == 0 && newData.val() >= 1 && newData.val() <= 100000" },
+              "price":       { ".validate": "newData.isNumber() && newData.val() >= 0" },
+              "round":       { ".validate": "newData.isNumber() && newData.val() % 1 == 0 && newData.val() >= 0" },
+              "ts":          { ".validate": "newData.isNumber()" },
 
               "$other": { ".validate": false }
             }
+          }
+        },
+
+        "standings": {
+          "$round": {
+            "computedAt": { ".validate": "newData.isNumber()" },
+            "round":      { ".validate": "newData.isNumber() && newData.val() >= 0 && newData.val() % 1 == 0" },
+            "list": {
+              ".validate": "newData.hasChildren()",
+              "$idx": {
+                "uid":      { ".validate": "newData.isString() && newData.val().length > 0" },
+                "teamName": { ".validate": "newData.isString() && newData.val().length >= 1 && newData.val().length <= 40" },
+                "cash":     { ".validate": "newData.isNumber()" },
+                "$other":   { ".validate": false }
+              }
+            },
+            "$other": { ".validate": false }
           }
         },
 
