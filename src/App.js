@@ -4,6 +4,7 @@ import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { auth, database } from './firebase';
 import { onAuthStateChanged } from 'firebase/auth';
 import { ref, onValue } from 'firebase/database';
+import 'odometer/themes/odometer-theme-minimal.css';
 
 import Lobby from './Lobby';
 import TeacherDashboard from './TeacherDashboard';

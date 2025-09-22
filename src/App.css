@@ -36,3 +36,54 @@
     transform: rotate(360deg);
   }
 }
+
+/* --- Flip stats --- */
+.statflip {
+  display: inline-flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 6px 10px;
+  border-radius: 8px;
+  transition: background-color 0.3s ease, box-shadow 0.3s ease;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+}
+
+.statflip .statflip-label {
+  font-size: 12px;
+  color: #667085;
+  letter-spacing: .02em;
+}
+
+.statflip .statflip-value {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 18px;
+  line-height: 1;
+  color: #111827;
+}
+
+.statflip .currency {
+  opacity: 0.8;
+  margin-right: 2px;
+}
+
+/* Flash feedback */
+.statflip.up {
+  background: #ecfdf3;             /* faint green */
+  box-shadow: 0 0 0 2px #d1fadf inset;
+}
+
+.statflip.down {
+  background: #fef3f2;             /* faint red */
+  box-shadow: 0 0 0 2px #fecaca inset;
+}
+
+/* a neat bar of stats */
+.statbar {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  align-items: center;
+  margin: 8px 0 14px;
+}

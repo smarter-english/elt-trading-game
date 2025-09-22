@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 80 80">
+  <path style="stroke: rgb(0, 0, 0); fill: rgb(206, 241, 255); stroke-width: 2.5px; transform-origin: 40.498px 42.475px;" d="M 3.277 76.019 L 10.728 55.264 C 4.75 40.467 4.07 26.092 16.959 13.199 C 36.15 -5.989 68.891 3.414 75.917 29.626 C 82.941 55.845 55.848 84.151 24.033 68.631 L 3.277 76.019 Z"/>
+  <path style="stroke: rgb(0, 0, 0); fill: rgb(255, 255, 255); stroke-width: 2.5px; transform-origin: 42.411px 39.446px;" d="M 47.94 57.677 L 49.167 49.417 C 59.355 43.535 59.356 28.828 49.168 22.945 C 38.978 17.063 26.242 24.416 26.241 36.182 C 26.241 40.739 27.823 44.73 33.573 49.359 L 34.152 57.484 L 47.94 57.677 Z"/>
+  <rect x="36.014" y="60.172" width="9.996" height="4.445" style="fill: rgb(216, 216, 216); stroke: rgb(0, 0, 0); stroke-width: 2.5px;"/>
+  <line style="stroke: rgb(0, 0, 0); stroke-width: 2.5px; transform-origin: 47.79px 13.671px;" x1="46.866" y1="17.121" x2="48.715" y2="10.221"/>
+  <line style="stroke: rgb(0, 0, 0); stroke-width: 2.5px; transform-origin: 58.146px 19.825px;" x1="55.62" y1="22.35" x2="60.671" y2="17.299"/>
+  <line style="stroke: rgb(0, 0, 0); stroke-width: 2.5px; transform-origin: 63.988px 30.194px;" x1="60.538" y1="31.118" x2="67.438" y2="29.269"/>
+  <line style="stroke: rgb(0, 0, 0); stroke-width: 2.5px; transform-origin: 35.294px 13.48px;" x1="36.218" y1="16.93" x2="34.369" y2="10.03"/>
+  <line style="stroke: rgb(0, 0, 0); stroke-width: 2.5px; transform-origin: 24.938px 19.634px;" x1="27.464" y1="22.159" x2="22.413" y2="17.108"/>
+  <line style="stroke: rgb(0, 0, 0); stroke-width: 2.5px; transform-origin: 19.096px 30.003px;" x1="22.546" y1="30.927" x2="15.646" y2="29.078"/>
+  <line style="stroke: rgb(0, 0, 0); stroke-width: 2.5px; transform-origin: 24.423px 51.951px;" x1="26.949" y1="49.426" x2="21.898" y2="54.477"/>
+  <line style="stroke: rgb(0, 0, 0); stroke-width: 2.5px; transform-origin: 18.581px 41.582px;" x1="22.031" y1="40.658" x2="15.131" y2="42.507"/>
+  <line style="stroke: rgb(0, 0, 0); stroke-width: 2.5px; transform-origin: 58.017px 52.389px;" x1="55.491" y1="49.864" x2="60.542" y2="54.915"/>
+  <line style="stroke: rgb(0, 0, 0); stroke-width: 2.5px; transform-origin: 63.859px 42.02px;" x1="60.409" y1="41.096" x2="67.309" y2="42.945"/>
+</svg>
