@@ -1,237 +1,101 @@
 // src/TeacherLogin.js
-import React, { useEffect, useState, useRef } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { auth, database } from './firebase';
+import React, { useEffect, useState } from 'react';
 import { signInWithEmailAndPassword, onAuthStateChanged, signOut } from 'firebase/auth';
+import { auth, database } from './firebase';
 import { ref, onValue } from 'firebase/database';
-
-const DEBUG_LOGIN = false;
+import { useNavigate } from 'react-router-dom';
+import BrandBar from './BrandBar';
 
 export default function TeacherLogin() {
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [submitting, setSubmitting] = useState(false);
-  const [error, setError] = useState('');
-
-  const [user, setUser] = useState(null);
-  const [role, setRole] = useState(null); // 'admin' | 'teacher' | 'pending_teacher' | 'student' | null
-  const [profile, setProfile] = useState(null);
-  const [loadingRole, setLoadingRole] = useState(false);
-
   const navigate = useNavigate();
-  const navOnceRef = useRef(false); // guard against accidental multiple navigations
+
+  const [email, setEmail] = useState('');
+  const [password, setPw] = useState('');
+  const [authed, setAuthed] = useState(!!auth.currentUser);
+  const [role, setRole] = useState(null);
+  const [toast, setToast] = useState('');
 
   useEffect(() => {
-    let offProfile = () => {};
     const unsub = onAuthStateChanged(auth, (u) => {
-      setUser(u);
-      setError('');
-      setRole(null);
-      setProfile(null);
-      setLoadingRole(false);
-
-      if (DEBUG_LOGIN) console.log('[TeacherLogin] auth state:', u?.uid || null);
-
-      // Clean up any prior listener
-      offProfile();
-
+      setAuthed(!!u);
       if (u) {
-        setLoadingRole(true);
-        const profRef = ref(database, `users/${u.uid}`);
-        offProfile = onValue(
-          profRef,
-          (snap) => {
-            const p = snap.val() || null;
-            setProfile(p);
-            setRole(p?.role || null);
-            setLoadingRole(false);
-            if (DEBUG_LOGIN) console.log('[TeacherLogin] role loaded:', p?.role);
-          },
-          () => setLoadingRole(false)
-        );
+        const off = onValue(ref(database, `users/${u.uid}`), (s) => {
+          const v = s.val() || {};
+          setRole(v.role || null);
+        });
+        return () => off();
+      } else {
+        setRole(null);
       }
     });
-
-    return () => {
-      unsub();
-      offProfile();
-    };
+    return () => unsub();
   }, []);
 
-  const handleLogin = async (e) => {
+  const withToast = (msg, ms = 1800) => {
+    setToast(msg);
+    setTimeout(() => setToast(''), ms);
+  };
+
+  const doLogin = async (e) => {
     e.preventDefault();
-    setSubmitting(true);
-    setError('');
     try {
       await signInWithEmailAndPassword(auth, email.trim(), password);
-      // onAuthStateChanged will populate user/role
-    } catch (err) {
-      setError(err?.message || 'Login failed');
-      if (DEBUG_LOGIN) console.warn('[TeacherLogin] login error:', err);
-    } finally {
-      setSubmitting(false);
+      withToast('Logged in');
+    } catch (e2) {
+      withToast(e2?.message || 'Login failed', 2200);
     }
-  };
-
-  const handleLogout = async () => {
-    try {
-      await signOut(auth);
-    } finally {
-      setEmail('');
-      setPassword('');
-      navOnceRef.current = false; // reset guard on logout
-    }
-  };
-
-  const isAdmin = role === 'admin';
-  const isTeacher = role === 'teacher' || isAdmin;
-  const isPending = role === 'pending_teacher';
-  const userLabel =
-    profile?.firstName || profile?.lastName
-      ? `${profile.firstName ?? ''} ${profile.lastName ?? ''}`.trim()
-      : user?.displayName || user?.email || 'Teacher';
-
-  // ⛔ Stay passive: no auto-redirect here
-
-  const handleGoDashboard = () => {
-    if (!isTeacher || loadingRole) return;
-    if (navOnceRef.current) return; // guard multiple calls
-    navOnceRef.current = true;
-    if (DEBUG_LOGIN) console.log('[TeacherLogin] Navigating to /teacher/dashboard for role:', role);
-    navigate('/teacher/dashboard'); // no replace → avoids replaceState spam in Safari
   };
 
   return (
-    <div
-      style={{
-        maxWidth: 460,
-        margin: '48px auto',
-        padding: 24,
-        border: '1px solid #ddd',
-        borderRadius: 8,
-      }}
-    >
-      <h2 style={{ marginTop: 0 }}>Teacher sign in</h2>
+    <>
+      <BrandBar showLogout={authed} />
 
-      {user && (
-        <div
-          style={{
-            background: '#f6f9fe',
-            border: '1px solid #cfe3ff',
-            padding: 12,
-            borderRadius: 6,
-            margin: '12px 0',
-          }}
-          aria-live="polite"
-        >
-          <div
-            style={{
-              display: 'flex',
-              justifyContent: 'space-between',
-              alignItems: 'center',
-              gap: 12,
-            }}
-          >
-            <div>
-              <strong>
-                Welcome{isTeacher ? ' (teacher)' : isPending ? ' (pending approval)' : ''}!
-              </strong>
-              <div style={{ fontSize: 13, color: '#555' }}>
-                {userLabel} • {user?.email}
-              </div>
+      <div className="toast-rail">
+        <div className={`toast ${toast ? 'show' : ''}`}>{toast}</div>
+      </div>
 
-              {loadingRole && (
-                <div style={{ color: '#555', marginTop: 6 }}>Checking your permissions…</div>
-              )}
+      <div style={{ padding: 16, maxWidth: 560, margin: '0 auto' }}>
+        <h1 style={{ marginTop: 8 }}>Teacher Login</h1>
 
-              {!loadingRole && !isTeacher && !isPending && (
-                <div style={{ color: '#b00020', marginTop: 6 }}>
-                  This account is not a teacher. If you applied, please wait for approval.
-                </div>
-              )}
-              {!loadingRole && isPending && (
-                <div style={{ color: '#9a6b00', marginTop: 6 }}>
-                  Your teacher account is pending approval by an admin.
-                </div>
-              )}
-            </div>
-
-            <div>
-              <button
-                type="button"
-                onClick={handleGoDashboard}
-                disabled={!isTeacher || loadingRole}
-                style={{ marginRight: 8 }}
-                title={!isTeacher ? 'Teacher/admin access required' : undefined}
-              >
-                Go to dashboard
+        {authed ? (
+          <div style={{ marginTop: 12 }}>
+            <p style={{ color: '#374151' }}>
+              You are signed in{role ? ` as ${role}` : ''}.
+            </p>
+            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+              <button className="btn primary" onClick={() => navigate('/teacher/dashboard')}>
+                Go to Dashboard
               </button>
-              <button type="button" onClick={handleLogout}>
-                Log out
+              <button className="btn" onClick={() => signOut(auth)}>
+                Log Out
               </button>
             </div>
           </div>
-        </div>
-      )}
-
-      {!user && (
-        <form onSubmit={handleLogin} noValidate>
-          <label>
-            Email
-            <br />
+        ) : (
+          <form onSubmit={doLogin} style={{ marginTop: 12, display: 'grid', gap: 10 }}>
             <input
               type="email"
+              placeholder="Email"
+              autoComplete="email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              required
-              autoFocus
-              style={{ width: '100%' }}
-              autoComplete="username"
+              style={{ padding: '10px 12px', border: '1px solid #d1d5db', borderRadius: 10 }}
             />
-          </label>
-          <br />
-          <label>
-            Password
-            <br />
             <input
               type="password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              required
-              style={{ width: '100%' }}
+              placeholder="Password"
               autoComplete="current-password"
+              value={password}
+              onChange={(e) => setPw(e.target.value)}
+              style={{ padding: '10px 12px', border: '1px solid #d1d5db', borderRadius: 10 }}
             />
-          </label>
-
-          {error && (
-            <div style={{ color: '#b00020', marginTop: 8 }} role="alert">
-              {error}
+            <button className="btn primary" type="submit">Log In</button>
+            <div style={{ color: '#6b7280', fontSize: 14 }}>
+              New teacher? Ask an admin to approve your account (or use the Apply page if enabled).
             </div>
-          )}
-
-          <button type="submit" disabled={submitting} style={{ marginTop: 12, width: '100%' }}>
-            {submitting ? 'Signing in…' : 'Sign in'}
-          </button>
-
-          <div style={{ marginTop: 8 }}>
-            New teacher?{' '}
-            <button
-              type="button"
-              onClick={() => navigate('/teacher/apply')}
-              style={{
-                background: 'none',
-                border: 'none',
-                color: '#06f',
-                cursor: 'pointer',
-                padding: 0,
-                textDecoration: 'underline',
-              }}
-            >
-              Apply here
-            </button>
-          </div>
-        </form>
-      )}
-    </div>
+          </form>
+        )}
+      </div>
+    </>
   );
 }

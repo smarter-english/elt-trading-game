@@ -1,119 +1,104 @@
 // src/TeacherProfile.js
 import React, { useEffect, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
 import { auth, database } from './firebase';
-import { onAuthStateChanged, updateProfile } from 'firebase/auth';
-import { ref, get, set } from 'firebase/database';
+import { ref, onValue, update } from 'firebase/database';
+import BrandBar from './BrandBar';
 
 export default function TeacherProfile() {
-  const [user, setUser] = useState(null);
-  const [firstName, setFirst] = useState('');
-  const [lastName, setLast] = useState('');
+  const uid = auth.currentUser?.uid || null;
+
   const [email, setEmail] = useState('');
-  const [submitting, setSubmitting] = useState(false);
-  const [msg, setMsg] = useState('');
-  const navigate = useNavigate();
+  const [firstName, setFn] = useState('');
+  const [lastName, setLn] = useState('');
+  const [saving, setSaving] = useState(false);
+  const [toast, setToast] = useState('');
 
   useEffect(() => {
-    const unsub = onAuthStateChanged(auth, async (u) => {
-      setUser(u || null);
-      setMsg('');
-      if (!u) return;
-
-      setEmail(u.email || '');
-
-      // Prefill from RTDB profile if present; else from displayName
-      const snap = await get(ref(database, `users/${u.uid}`));
-      const profile = snap.val();
-      if (profile?.firstName || profile?.lastName) {
-        setFirst(profile.firstName || '');
-        setLast(profile.lastName || '');
-      } else if (u.displayName) {
-        const parts = u.displayName.split(' ');
-        setFirst(parts[0] || '');
-        setLast(parts.slice(1).join(' ') || '');
-      }
+    if (!uid) return;
+    return onValue(ref(database, `users/${uid}`), (snap) => {
+      const v = snap.val() || {};
+      setEmail(v.email || auth.currentUser?.email || '');
+      setFn(v.firstName || '');
+      setLn(v.lastName || '');
     });
-    return unsub;
-  }, []);
+  }, [uid]);
 
-  if (!user) {
-    return (
-      <div style={{ padding: 20 }}>
-        <p>You need to be signed in as a teacher.</p>
-        <button onClick={() => navigate('/teacher/login')}>Go to Teacher Login</button>
-      </div>
-    );
-  }
+  const withToast = (msg, ms = 1800) => {
+    setToast(msg);
+    setTimeout(() => setToast(''), ms);
+  };
 
-  const handleSave = async (e) => {
+  const save = async (e) => {
     e.preventDefault();
-    setSubmitting(true);
-    setMsg('');
+    if (!uid) return;
+    setSaving(true);
     try {
-      const displayName = `${firstName} ${lastName}`.trim();
-      await updateProfile(auth.currentUser, { displayName });
-      await set(ref(database, `users/${user.uid}`), {
-        firstName,
-        lastName,
-        role: 'teacher',
-        email: email || user.email || '',
+      await update(ref(database, `users/${uid}`), {
+        firstName: firstName.trim(),
+        lastName: lastName.trim(),
+        email: email || auth.currentUser?.email || '',
+        updatedAt: Date.now(),
       });
-      setMsg('Profile updated!');
-    } catch (err) {
-      setMsg(err?.message || 'Failed to update profile.');
+      withToast('Profile updated');
+    } catch (e2) {
+      console.warn(e2);
+      withToast('Save failed', 2200);
     } finally {
-      setSubmitting(false);
+      setSaving(false);
     }
   };
 
   return (
-    <div
-      style={{
-        maxWidth: 420,
-        margin: '48px auto',
-        padding: 24,
-        border: '1px solid #ddd',
-        borderRadius: 8,
-      }}
-    >
-      <h2>Teacher Profile</h2>
-      <form onSubmit={handleSave}>
-        <label>
-          First name
-          <br />
-          <input
-            value={firstName}
-            onChange={(e) => setFirst(e.target.value)}
-            required
-            style={{ width: '100%' }}
-          />
-        </label>
-        <br />
-        <label>
-          Last name
-          <br />
-          <input
-            value={lastName}
-            onChange={(e) => setLast(e.target.value)}
-            required
-            style={{ width: '100%' }}
-          />
-        </label>
-        <br />
-        <label>
-          Email
-          <br />
-          <input value={email} disabled style={{ width: '100%', opacity: 0.7 }} />
-        </label>
-        <button type="submit" disabled={submitting} style={{ marginTop: 12, width: '100%' }}>
-          {submitting ? 'Saving…' : 'Save profile'}
-        </button>
-        {msg && <div style={{ marginTop: 8 }}>{msg}</div>}
-      </form>
-      <div style={{ marginTop: 12 }}>
-        <button onClick={() => navigate('/teacher/dashboard')}>Back to Dashboard</button>
+    <>
+      <BrandBar showLogout />
+
+      <div className="toast-rail">
+        <div className={`toast ${toast ? 'show' : ''}`}>{toast}</div>
       </div>
-    </div>
+
+      <div style={{ padding: 16, maxWidth: 640, margin: '0 auto' }}>
+        <h1 style={{ marginTop: 8 }}>Teacher Profile</h1>
+
+        {!uid ? (
+          <p>Please log in.</p>
+        ) : (
+          <form onSubmit={save} style={{ marginTop: 12, display: 'grid', gap: 10 }}>
+            <label>
+              <div style={{ fontSize: 12, color: '#6b7280' }}>Email</div>
+              <input
+                type="email"
+                value={email}
+                readOnly
+                style={{ width: '100%', padding: '10px 12px', border: '1px solid #e5e7eb', borderRadius: 10, background: '#f9fafb' }}
+              />
+            </label>
+
+            <label>
+              <div style={{ fontSize: 12, color: '#6b7280' }}>First name</div>
+              <input
+                type="text"
+                value={firstName}
+                onChange={(e) => setFn(e.target.value)}
+                style={{ width: '100%', padding: '10px 12px', border: '1px solid #d1d5db', borderRadius: 10 }}
+              />
+            </label>
+
+            <label>
+              <div style={{ fontSize: 12, color: '#6b7280' }}>Last name</div>
+              <input
+                type="text"
+                value={lastName}
+                onChange={(e) => setLn(e.target.value)}
+                style={{ width: '100%', padding: '10px 12px', border: '1px solid #d1d5db', borderRadius: 10 }}
+              />
+            </label>
+
+            <button className="btn primary" type="submit" disabled={saving}>
+              {saving ? 'Saving…' : 'Save'}
+            </button>
+          </form>
+        )}
+      </div>
+    </>
   );
 }

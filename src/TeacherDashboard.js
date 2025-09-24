@@ -1,171 +1,254 @@
 // src/TeacherDashboard.js
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { auth, database } from './firebase';
-import { ref, push, set, query, orderByChild, equalTo, onValue } from 'firebase/database';
-import { onAuthStateChanged, signOut } from 'firebase/auth';
-import { Link, useNavigate } from 'react-router-dom';
+import { onAuthStateChanged } from 'firebase/auth';
+import {
+  ref,
+  push,
+  set,
+  onValue,
+  query,
+  orderByChild,
+  equalTo,
+} from 'firebase/database';
+import BrandBar from './BrandBar';
+
+const CODE_ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+function makeCode(n = 6) {
+  let s = '';
+  for (let i = 0; i < n; i++) {
+    s += CODE_ALPHABET[Math.floor(Math.random() * CODE_ALPHABET.length)];
+  }
+  return s;
+}
 
 export default function TeacherDashboard() {
-  const [user, setUser] = useState(null);
-  const [profile, setProfile] = useState(null); // { firstName, lastName, email, role }
-  const [role, setRole] = useState(null);
-  const [newGameName, setNewGameName] = useState('');
-  const [myGames, setMyGames] = useState([]);
   const navigate = useNavigate();
 
-  // Track auth state
+  const [uid, setUid] = useState(auth.currentUser?.uid || null);
+  const [profile, setProfile] = useState(null);
+  const displayName = useMemo(() => {
+    if (!profile) return '';
+    if (profile.firstName || profile.lastName)
+      return `${profile.firstName || ''} ${profile.lastName || ''}`.trim();
+    return profile.displayName || profile.email || '';
+  }, [profile]);
+
+  const [games, setGames] = useState([]); // [{id, name, code, createdAt, teamCount}]
+  const [newGameName, setNewGameName] = useState('');
+  const [creating, setCreating] = useState(false);
+  const [toast, setToast] = useState('');
+
+  // Auth + profile
   useEffect(() => {
-    let offProfile = () => {};
     const unsub = onAuthStateChanged(auth, (u) => {
-      setUser(u);
-      setProfile(null);
-      setRole(null);
-      if (u) {
-        const profRef = ref(database, `users/${u.uid}`);
-        offProfile = onValue(profRef, (snap) => {
-          const p = snap.val() || null;
-          setProfile(p);
-          setRole(p?.role || null);
+      setUid(u?.uid || null);
+      if (u?.uid) {
+        onValue(ref(database, `users/${u.uid}`), (snap) => {
+          setProfile(snap.val() || { email: u.email || '' });
         });
+      } else {
+        setProfile(null);
       }
     });
-    return () => {
-      unsub();
-      offProfile();
-    };
+    return () => unsub();
   }, []);
 
-  // Load only this teacher's games once we have a user
+  // Load games created by this teacher
   useEffect(() => {
-    if (!user) return;
-    const gamesRef = query(ref(database, 'games'), orderByChild('createdBy'), equalTo(user.uid));
-    return onValue(gamesRef, (snap) => {
-      const data = snap.val() || {};
-      const list = Object.entries(data).map(([id, g]) => ({ id, ...g }));
-      setMyGames(list);
+    if (!uid) return;
+    const q = query(ref(database, 'games'), orderByChild('createdBy'), equalTo(uid));
+    const off = onValue(q, (snap) => {
+      const val = snap.val() || {};
+      const list = Object.entries(val).map(([id, g]) => {
+        const teams = g.teams ? Object.keys(g.teams).length : 0;
+        return {
+          id,
+          name: g.name || '(unnamed)',
+          code: g.code,
+          createdAt: g.createdAt || 0,
+          teamCount: teams,
+        };
+      });
+      // newest first
+      list.sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
+      setGames(list);
     });
-  }, [user]);
+    return () => off();
+  }, [uid]);
 
-  const isAdmin = role === 'admin';
-  const isTeacher = role === 'teacher' || isAdmin;
-
-  const handleCreateGame = async () => {
-    if (!user || !isTeacher) return;
-    const code = Math.random().toString(36).substring(2, 8).toUpperCase();
-    const newGameRef = push(ref(database, 'games'));
-    const gameId = newGameRef.key;
-
-    await set(newGameRef, {
-      name: newGameName || `Game ${Date.now()}`,
-      createdBy: user.uid,
-      createdAt: Date.now(),
-      currentRound: 0,
-      state: 'trading',
-      code,
-    });
-
-    // map invite code → gameId
-    await set(ref(database, `gamesByCode/${code}`), gameId);
-    setNewGameName('');
+  const copy = async (text) => {
+    try {
+      await navigator.clipboard.writeText(text);
+      setToast('Code copied!');
+      setTimeout(() => setToast(''), 1500);
+    } catch {
+      setToast('Copy failed');
+      setTimeout(() => setToast(''), 1500);
+    }
   };
 
-  const handleLogout = async () => {
-    await signOut(auth);
-    navigate('/teacher/login');
-  };
+  const createGame = async (e) => {
+    e.preventDefault();
+    if (!uid) return;
+    setCreating(true);
+    try {
+      const code = makeCode(6);
+      const gamesRef = ref(database, 'games');
+      const newRef = push(gamesRef);
+      const gameId = newRef.key;
 
-  const userLabel =
-    profile?.firstName || profile?.lastName
-      ? `${profile.firstName ?? ''} ${profile.lastName ?? ''}`.trim()
-      : user?.displayName || user?.email || 'Teacher';
+      const payload = {
+        name: newGameName.trim() || `My Game ${new Date().toLocaleDateString()}`,
+        createdBy: uid,
+        createdAt: Date.now(),
+        code,
+        currentRound: 0,
+        state: 'play', // or 'review'
+      };
+
+      await set(newRef, payload);
+      await set(ref(database, `gamesByCode/${code}`), gameId);
+
+      setNewGameName('');
+      setToast(`Game created. Code: ${code}`);
+      setTimeout(() => setToast(''), 2000);
+
+      // Jump into the game management page
+      navigate(`/teacher/game/${gameId}`);
+    } catch (err) {
+      console.warn('Create game failed', err);
+      setToast('Failed to create game');
+      setTimeout(() => setToast(''), 2000);
+    } finally {
+      setCreating(false);
+    }
+  };
 
   return (
-    <div style={{ padding: 20 }}>
-      {/* Header with teacher identity + actions */}
-      <div
-        style={{
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          marginBottom: 12,
-        }}
-      >
-        <h2 style={{ margin: 0 }}>{userLabel || 'Teacher'}'s Dashboard</h2>
-        <div>
-          <button onClick={() => navigate('/teacher/profile')} style={{ marginRight: 8 }}>
-            Profile
-          </button>
-          <button onClick={handleLogout}>Log out</button>
-        </div>
+    <>
+      <BrandBar showLogout />
+
+      {/* Toast rail (fixed height, no layout shift) */}
+      <div className="toast-rail">
+        <div className={`toast ${toast ? 'show' : ''}`}>{toast}</div>
       </div>
 
-      {/* Role status / guidance */}
-      {!isTeacher && (
-        <div
+      <div style={{ padding: 16, maxWidth: 960, margin: '0 auto' }}>
+        <h1 style={{ margin: '8px 0 4px' }}>
+          {displayName ? `${displayName}'s Dashboard` : 'Teacher Dashboard'}
+        </h1>
+        <p style={{ color: '#6b7280', margin: '0 0 16px' }}>
+          Create a new game and manage existing ones.
+        </p>
+
+        {/* Create Game */}
+        <form
+          onSubmit={createGame}
           style={{
-            background: '#fff6e5',
-            border: '1px solid #ffd8a8',
-            padding: 12,
-            borderRadius: 6,
-            marginBottom: 12,
+            display: 'flex',
+            gap: 8,
+            alignItems: 'center',
+            margin: '12px 0 20px',
+            flexWrap: 'wrap',
           }}
         >
-          {role === 'pending_teacher' ? (
-            <span>
-              Your teacher account is <strong>pending approval</strong>. An admin will enable access
-              soon.
-            </span>
-          ) : (
-            <span>
-              This account is <strong>not a teacher</strong>. If you applied, please wait for
-              approval or contact an admin.
-            </span>
-          )}
-        </div>
-      )}
+          <input
+            type="text"
+            placeholder="Game name (e.g., 3A Friday)"
+            value={newGameName}
+            onChange={(e) => setNewGameName(e.target.value)}
+            style={{
+              flex: '1 1 280px',
+              minWidth: 240,
+              padding: '10px 12px',
+              border: '1px solid #d1d5db',
+              borderRadius: 10,
+              fontSize: 16,
+            }}
+          />
+          <button
+            type="submit"
+            disabled={creating || !uid}
+            className="btn primary"
+            style={{ height: 42 }}
+          >
+            {creating ? 'Creating…' : 'Create Game'}
+          </button>
+        </form>
 
-      {/* Create Game */}
-      <div style={{ margin: '1em 0', opacity: isTeacher ? 1 : 0.6 }}>
-        <input
-          type="text"
-          placeholder="New Game Name"
-          value={newGameName}
-          onChange={(e) => setNewGameName(e.target.value)}
-          style={{ marginRight: 8 }}
-          disabled={!isTeacher}
-        />
-        <button onClick={handleCreateGame} disabled={!isTeacher}>
-          Create Game
-        </button>
+        {/* Games list */}
+        {games.length === 0 ? (
+          <div
+            style={{
+              border: '1px dashed #d1d5db',
+              borderRadius: 12,
+              padding: 16,
+              color: '#6b7280',
+            }}
+          >
+            No games yet. Create your first game above.
+          </div>
+        ) : (
+          <div
+            style={{
+              border: '1px solid #e5e7eb',
+              borderRadius: 12,
+              overflow: 'hidden',
+            }}
+          >
+            <table className="trade-table" style={{ width: '100%', borderCollapse: 'collapse' }}>
+              <thead>
+                <tr>
+                  <th style={{ padding: '10px 8px' }}>Name</th>
+                  <th style={{ padding: '10px 8px' }}>Code</th>
+                  <th style={{ padding: '10px 8px' }}>Teams</th>
+                  <th style={{ padding: '10px 8px' }} />
+                </tr>
+              </thead>
+              <tbody>
+                {games.map((g) => (
+                  <tr key={g.id}>
+                    <td style={{ padding: '8px' }}>{g.name}</td>
+                    <td style={{ padding: '8px' }}>
+                      <code
+                        style={{
+                          background: '#f3f4f6',
+                          padding: '2px 6px',
+                          borderRadius: 6,
+                          fontWeight: 600,
+                        }}
+                      >
+                        {g.code}
+                      </code>
+                      <button
+                        type="button"
+                        className="btn"
+                        style={{ marginLeft: 8, padding: '4px 8px' }}
+                        onClick={() => copy(g.code)}
+                        aria-label="Copy code"
+                        title="Copy code"
+                      >
+                        Copy
+                      </button>
+                    </td>
+                    <td style={{ padding: '8px' }}>{g.teamCount}</td>
+                    <td style={{ padding: '8px', textAlign: 'right' }}>
+                      <button
+                        className="btn primary"
+                        onClick={() => navigate(`/teacher/game/${g.id}`)}
+                      >
+                        Manage Game
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
       </div>
-
-      <h3>My Games & Codes</h3>
-      {!isTeacher && myGames.length === 0 && (
-        <p style={{ color: '#555' }}>
-          No games yet. You’ll see your games here once your account is approved.
-        </p>
-      )}
-      <ul>
-        {myGames.map((game) => (
-          <li key={game.id} style={{ marginBottom: 16 }}>
-            <div
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'space-between',
-              }}
-            >
-              <div>
-                <strong>{game.name}</strong> <small>(Code: {game.code})</small>
-                <p style={{ margin: '4px 0' }}>Month {game.currentRound + 1}</p>
-              </div>
-              <Link to={`/teacher/game/${game.id}`}>
-                <button disabled={!isTeacher}>Manage Game</button>
-              </Link>
-            </div>
-          </li>
-        ))}
-      </ul>
-    </div>
+    </>
   );
 }
