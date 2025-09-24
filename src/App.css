@@ -87,3 +87,34 @@
   align-items: center;
   margin: 8px 0 14px;
 }
+
+/* Big, readable headlines for PLAY mode */
+.headlines--play,
+.headlines-table--play {
+  font-size: clamp(30px, 2.4vw, 50px); /* scales up on larger screens */
+  line-height: 1.25;
+  font-weight: 600; /* slightly bolder for classroom readability */
+}
+
+.headlines--play ul {
+  margin: 0;
+  padding-left: 1rem;
+}
+
+.headlines--play li {
+  margin: 0.4rem 0;
+  font-size: 50px; /* scales up on larger screens */
+}
+
+.headlines-table--play td {
+  padding: 0.4rem 0.2rem;
+  vertical-align: top;
+}
+
+/* Optional: extra-large on small phones */
+@media (max-width: 420px) {
+  .headlines--play,
+  .headlines-table--play {
+    font-size: clamp(22px, 6vw, 34px);
+  }
+}

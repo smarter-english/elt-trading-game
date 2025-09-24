@@ -15,26 +15,32 @@
     "gamesByCode": {
       "$code": {
         ".read": true,
-        ".write": false
+        ".write": "auth != null && (root.child('users').child(auth.uid).child('role').val() === 'teacher' || root.child('users').child(auth.uid).child('role').val() === 'admin')",
+        ".validate": "newData.isString() && newData.val().length > 0 && newData.val().length < 80"
       }
     },
 
     "games": {
+      ".read": "auth != null",
+      ".indexOn": ["createdBy"],
+
       "$gameId": {
         ".read": "auth != null && (root.child('users').child(auth.uid).child('role').val() === 'admin' || root.child('games').child($gameId).child('createdBy').val() === auth.uid || root.child('games').child($gameId).child('teams').child(auth.uid).exists())",
-        ".write": "auth != null && (root.child('users').child(auth.uid).child('role').val() === 'admin' || root.child('games').child($gameId).child('createdBy').val() === auth.uid)",
 
-        "state": {
-          ".validate": "newData.val() === 'play' || newData.val() === 'review'"
-        },
-        "currentRound": {
-          ".validate": "newData.isNumber() && newData.val() >= 0 && newData.val() % 1 === 0"
-        },
+        ".write": "auth != null && (root.child('users').child(auth.uid).child('role').val() === 'admin' || (!data.exists() && (root.child('users').child(auth.uid).child('role').val() === 'teacher' || root.child('users').child(auth.uid).child('role').val() === 'admin') && newData.child('createdBy').val() === auth.uid) || (data.exists() && (data.child('createdBy').val() === auth.uid || root.child('users').child(auth.uid).child('role').val() === 'admin')))",
+
+        "state": { ".validate": "newData.val() === 'play' || newData.val() === 'review'" },
+        "currentRound": { ".validate": "newData.isNumber() && newData.val() >= 0 && newData.val() % 1 === 0" },
+        "createdBy": { ".validate": "newData.isString() && newData.val().length > 0" },
+        "createdAt": { ".validate": "newData.isNumber()" },
+        "name": { ".validate": "newData.isString() && newData.val().length > 0 && newData.val().length <= 100" },
+        "code": { ".validate": "newData.isString() && newData.val().length > 0 && newData.val().length <= 12" },
 
         "teams": {
           "$uid": {
             ".read": "auth != null && (root.child('users').child(auth.uid).child('role').val() === 'admin' || root.child('games').child($gameId).child('createdBy').val() === auth.uid || auth.uid === $uid || root.child('games').child($gameId).child('teams').child(auth.uid).exists())",
             ".write": "auth != null && (auth.uid === $uid || root.child('users').child(auth.uid).child('role').val() === 'admin' || root.child('games').child($gameId).child('createdBy').val() === auth.uid)",
+            "teamName": { ".validate": "newData.isString() && newData.val().length <= 50" },
             "name": { ".validate": "newData.isString() && newData.val().length <= 50" },
             "teamPassword": { ".validate": "newData.isString() && newData.val().length <= 100" },
             "joinedAt": { ".validate": "newData.isNumber()" }
@@ -61,6 +67,13 @@
         },
 
         "penalties": {
+          "$round": {
+            ".read": "auth != null && (root.child('users').child(auth.uid).child('role').val() === 'admin' || root.child('games').child($gameId).child('createdBy').val() === auth.uid)",
+            ".write": "auth != null && (root.child('users').child(auth.uid).child('role').val() === 'admin' || root.child('games').child($gameId).child('createdBy').val() === auth.uid)"
+          }
+        },
+
+        "reveals": {
           "$round": {
             ".read": "auth != null && (root.child('users').child(auth.uid).child('role').val() === 'admin' || root.child('games').child($gameId).child('createdBy').val() === auth.uid)",
             ".write": "auth != null && (root.child('users').child(auth.uid).child('role').val() === 'admin' || root.child('games').child($gameId).child('createdBy').val() === auth.uid)"

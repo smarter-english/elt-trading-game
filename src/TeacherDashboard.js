@@ -15,7 +15,7 @@ import {
 } from 'firebase/database';
 import BrandBar from './BrandBar';
 
-const CODE_ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+const CODE_ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZ';
 function makeCode(n = 6) {
   let s = '';
   for (let i = 0; i < n; i++) s += CODE_ALPHABET[Math.floor(Math.random() * CODE_ALPHABET.length)];
@@ -58,22 +58,28 @@ export default function TeacherDashboard() {
   // Load games created by this teacher
   useEffect(() => {
     if (!uid) return;
+
     const q = query(ref(database, 'games'), orderByChild('createdBy'), equalTo(uid));
-    const off = onValue(q, (snap) => {
-      const val = snap.val() || {};
-      const list = Object.entries(val).map(([id, g]) => {
-        const teams = g.teams ? Object.keys(g.teams).length : 0;
-        return {
+    const off = onValue(
+      q,
+      (snap) => {
+        const val = snap.val() || {};
+        const list = Object.entries(val).map(([id, g]) => ({
           id,
-          name: g.name || '(unnamed)',
-          code: g.code,
-          createdAt: g.createdAt || 0,
-          teamCount: teams,
-        };
-      });
-      list.sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
-      setGames(list);
-    });
+          name: g?.name || '(unnamed)',
+          code: g?.code || '',
+          createdAt: g?.createdAt || 0,
+          teamCount: g?.teams ? Object.keys(g.teams).length : 0,
+        }));
+        list.sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
+        setGames(list);
+      },
+      (err) => {
+        console.warn('Dashboard query error:', err);
+        setGames([]);
+      }
+    );
+
     return () => off();
   }, [uid]);
 
@@ -254,6 +260,6 @@ export default function TeacherDashboard() {
           </div>
         )}
       </div>
-    </>
+      </>
   );
 }

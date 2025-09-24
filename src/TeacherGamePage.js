@@ -359,7 +359,17 @@ export default function TeacherGamePage() {
 
       {/* Headlines vs Review UI */}
       {state !== 'review' ? (
-        <div style={{ border: '1px solid #ccc', padding: 12, margin: '12px', borderRadius: 8 }}>
+        <div 
+        className="headlines--play" 
+        style={{ 
+          border: '1px solid #ccc', 
+          padding: 12, 
+          margin: '12px', 
+          borderRadius: 8, 
+          fontSize: 'clamp(20px, 3.2vw, 36px)',
+          lineHeight: 1.25,
+          fontWeight: 700
+          }}>
           {loadingHL ? (
             <span>Loading headlines…</span>
           ) : headlines.length ? (
