@@ -3,7 +3,6 @@ import React, { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { auth, database } from './firebase';
 import { ref, onValue, get, runTransaction } from 'firebase/database';
-import { signOut } from 'firebase/auth';
 import MoneyOdometer from './MoneyOdometer';
 import BrandBar from './BrandBar';
 
@@ -21,6 +20,7 @@ export default function GamePage() {
   const [submitting, setSub] = useState(false);
   const [teamName, setTeamName] = useState('');
   const [toast, setToast] = useState('');
+  const [toastType, setToastType] = useState('success');
 
   const [headlinesList, setHeadlinesList] = useState([]);
   const [headlineLoading, setHeadlineLoading] = useState(true);
@@ -67,7 +67,7 @@ export default function GamePage() {
     });
   }, []);
 
-  // Headlines per round (one-time per round)
+  // Headlines per round (one-time per round) – kept for desktop only
   useEffect(() => {
     const round = game?.currentRound;
     if (round == null) return;
@@ -85,9 +85,7 @@ export default function GamePage() {
       }
     })();
 
-    return () => {
-      alive = false;
-    };
+    return () => { alive = false; };
   }, [game?.currentRound]);
 
   if (!game || !portfolio || commodities.length === 0) return <p>Loading…</p>;
@@ -104,6 +102,19 @@ export default function GamePage() {
     return sum;
   }, 0);
   const available = creditCap - used;
+
+  // qty helpers
+  const clampQty = (n) => (Number.isFinite(n) && n >= 1 ? n : 1);
+  const decQty = (cid) =>
+    setQtys((q) => {
+      const curr = clampQty(Math.floor(Number(q[cid] ?? 1)));
+      return { ...q, [cid]: String(Math.max(1, curr - 1)) };
+    });
+  const incQty = (cid) =>
+    setQtys((q) => {
+      const curr = clampQty(Math.floor(Number(q[cid] ?? 1)));
+      return { ...q, [cid]: String(curr + 1) };
+    });
 
   // Trading
   const handleTrade = async (cid, action) => {
@@ -137,81 +148,63 @@ export default function GamePage() {
       });
 
       const name = commodities.find((c) => c.id === cid)?.name || cid;
+      setToastType('success');
       setToast(`${action === 'buy' ? 'Bought' : 'Shorted'} ${qty} ${name} @ $${price.toFixed(2)}`);
       setTimeout(() => setToast(''), 2000);
       setQtys((prev) => ({ ...prev, [cid]: '' }));
     } catch (e) {
       console.error('Trade failed:', e);
-      alert(e.message);
+      setToastType('error');
+      setToast(e?.message || 'Trade failed');
+      setTimeout(() => setToast(''), 2500);
     } finally {
       setSub(false);
     }
   };
 
-  // Input helpers
-  const blockWheel = (e) => e.currentTarget.blur();
-  const blockBadKeys = (e) => {
-    if (['e', 'E', '+', '-', '.', ','].includes(e.key)) e.preventDefault();
-  };
-  const clampQty = (val) => {
-    const n = Math.floor(Number(val));
-    return Number.isFinite(n) && n >= 1 ? String(n) : '';
+  // helper for colored position text
+  const renderPositionText = (cid, unit) => {
+    const pos = Number(positions[cid] || 0);
+    const tot = pos * unit;
+    const sign = pos > 0 ? '+' : pos < 0 ? '-' : '';
+    const totSign = tot > 0 ? '+' : tot < 0 ? '-' : '';
+    const cls = pos > 0 ? 'pos-long' : pos < 0 ? 'pos-short' : 'pos-flat';
+    return (
+      <span className={cls}>
+        {`${sign}${Math.abs(pos)} units @ $${unit.toFixed(2)} each (total ${totSign}$${Math.abs(tot).toFixed(2)})`}
+      </span>
+    );
   };
 
   return (
     <div>
-      <BrandBar showLogout />      
+      <BrandBar showLogout />
 
-      {/* Page header */}
-      <header
-        style={{
-          display: 'flex',
-          justifyContent: 'space-between',
-          alignItems: 'baseline',
-          padding: '12px 12px 4px'
-        }}
-      >
-        <div>
-          <h2 style={{ margin: 0 }}>
-            Game: {game.name} <span style={{ color: '#64748b', fontWeight: 500 }}>&nbsp;•&nbsp;Month {round + 1}</span>
-          </h2>
-          <div style={{ color: '#555', marginTop: 4 }}>Team: {teamName || '(team not named)'}</div>
+      {/* Sticky HUD */}
+      <div className="hud-sticky">
+        <div style={{ fontWeight: 600 }}>
+          Game: {game.name} &nbsp;•&nbsp; Team: {teamName || '(team not named)'} &nbsp;•&nbsp; Month {round + 1}
         </div>
-      </header>
 
-      {/* Stat bar (odometer cards) */}
-      <div
-        style={{
-          display: 'grid',
-          gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))',
-          gap: 12,
-          alignItems: 'stretch',
-          margin: '8px 12px 14px'
-        }}
-      >
-        <MoneyOdometer label="Cash" value={cash} slotCh={16} />
-        <MoneyOdometer label="Credit Cap" value={creditCap} slotCh={16} />
-        <MoneyOdometer label="Used" value={used} slotCh={16} />
-        <MoneyOdometer label="Available" value={available} slotCh={16} />
+        <div className="statgrid hud-stats">
+          <MoneyOdometer label="Cash" value={cash} slotCh={16} />
+          <MoneyOdometer label="Credit Cap" value={creditCap} slotCh={16} />
+          <MoneyOdometer label="Used" value={used} slotCh={16} />
+          <MoneyOdometer label="Available" value={available} slotCh={16} />
+        </div>
+
+        {/* Toast slot (no layout shift) */}
+        <div className="toast-rail" style={{ position: 'static', height: 36, padding: 0, border: 'none' }}>
+          {toast ? (
+            <div className={`toast show ${toastType === 'error' ? 'error' : ''}`}>{toast}</div>
+          ) : (
+            <div className="toast" style={{ visibility: 'hidden' }}>.</div>
+          )}
+        </div>
       </div>
 
-      {toast && (
-        <div
-          style={{
-            background: '#eef9f0',
-            border: '1px solid #bfe4c7',
-            padding: 8,
-            margin: '8px 12px',
-            borderRadius: 6
-          }}
-          aria-live="polite"
-        >
-          {toast}
-        </div>
-      )}
-
-      {/* Headlines */}
-      <div style={{ border: '1px solid #ccc', padding: 12, margin: '12px', borderRadius: 8 }}>
+      {/* Headlines – desktop only */}
+      <div className="hide-on-mobile" style={{ border: '1px solid #ccc', padding: 12, margin: '12px', borderRadius: 8 }}>
         {headlineLoading ? (
           <span>Loading headlines…</span>
         ) : headlinesList.length ? (
@@ -225,9 +218,9 @@ export default function GamePage() {
         )}
       </div>
 
-      {/* Trade table */}
-      <div style={{ padding: '0 12px 24px' }}>
-        <table style={{ width: '100%', borderCollapse: 'collapse', marginTop: 12 }}>
+      {/* ===== Desktop table ===== */}
+      <div className="desktop-only" style={{ padding: '0 12px 24px' }}>
+        <table className="trade-table">
           <thead>
             <tr>
               <th>Commodity</th>
@@ -238,56 +231,140 @@ export default function GamePage() {
             </tr>
           </thead>
           <tbody>
-            {commodities.map((c) => (
-              <tr key={c.id}>
-                <td>{c.name}</td>
-                <td>${c.prices[round]}</td>
-                <td>
-                  <input
-                    type="number"
-                    inputMode="numeric"
-                    min="1"
-                    disabled={game.state === 'review'}
-                    value={qtys[c.id] ?? ''}
-                    style={{ width: 70 }}
-                    onWheel={blockWheel}
-                    onKeyDown={blockBadKeys}
-                    onChange={(e) =>
-                      setQtys((q) => ({ ...q, [c.id]: clampQty(e.target.value) }))
-                    }
-                  />
-                </td>
-                <td>
+            {commodities.map((c) => {
+              const unit = Number(c.prices?.[round] || 0);
+              return (
+                <tr key={c.id}>
+                  <td>{c.name}</td>
+                  <td>${unit.toFixed(2)}</td>
+                  <td>
+                    <input
+                      className="input-qty"
+                      type="number"
+                      inputMode="numeric"
+                      min="1"
+                      disabled={game.state === 'review'}
+                      value={qtys[c.id] ?? ''}
+                      onWheel={(e) => e.currentTarget.blur()}
+                      onKeyDown={(e) => {
+                        if (['e', 'E', '+', '-', '.', ' ', ','].includes(e.key)) e.preventDefault();
+                      }}
+                      onChange={(e) =>
+                        setQtys((q) => {
+                          const n = Math.floor(Number(e.target.value));
+                          return { ...q, [c.id]: Number.isFinite(n) && n >= 1 ? String(n) : '' };
+                        })
+                      }
+                    />
+                  </td>
+                  <td className="actions">
+                    <button
+                      className="btn"
+                      onClick={() => handleTrade(c.id, 'buy')}
+                      disabled={submitting || game.state === 'review'}
+                    >
+                      Buy
+                    </button>
+                    <button
+                      className="btn"
+                      onClick={() => handleTrade(c.id, 'short')}
+                      disabled={submitting || game.state === 'review'}
+                      style={{ marginLeft: 8 }}
+                    >
+                      Short
+                    </button>
+                  </td>
+                  <td>{renderPositionText(c.id, unit)}</td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
+
+      {/* ===== Mobile cards (3 lines + steppers) ===== */}
+      <div className="mobile-only trade-cards">
+        {commodities.map((c) => {
+          const unit = Number(c.prices?.[round] || 0);
+
+          return (
+            <div className="card-compact" key={c.id}>
+              {/* line 1: commodity — price */}
+              <div className="row">
+                <div className="title">{c.name}</div>
+                <div className="price">${unit.toFixed(2)}</div>
+              </div>
+
+              {/* line 2: [-] [qty] [+]  |  Buy / Short */}
+              <div className="row">
+                <div className="qtyCluster" aria-label="Quantity controls">
                   <button
+                    type="button"
+                    className="stepperBtn"
+                    onClick={() => decQty(c.id)}
+                    disabled={submitting || game.state === 'review'}
+                    aria-label={`Decrease ${c.name} quantity`}
+                  >
+                    −
+                  </button>
+                  <div className="qty">
+                    <input
+                      type="number"
+                      inputMode="numeric"
+                      min="1"
+                      disabled={game.state === 'review'}
+                      value={qtys[c.id] ?? ''}
+                      onWheel={(e) => e.currentTarget.blur()}
+                      onKeyDown={(e) => {
+                        if (['e', 'E', '+', '-', '.', ' ', ','].includes(e.key)) e.preventDefault();
+                      }}
+                      onChange={(e) =>
+                        setQtys((q) => {
+                          const n = Math.floor(Number(e.target.value));
+                          return { ...q, [c.id]: Number.isFinite(n) && n >= 1 ? String(n) : '' };
+                        })
+                      }
+                      aria-label={`${c.name} quantity`}
+                    />
+                  </div>
+                  <button
+                    type="button"
+                    className="stepperBtn"
+                    onClick={() => incQty(c.id)}
+                    disabled={submitting || game.state === 'review'}
+                    aria-label={`Increase ${c.name} quantity`}
+                  >
+                    +
+                  </button>
+                </div>
+
+                <div className="actions">
+                  <button
+                    className="btn primary"
                     onClick={() => handleTrade(c.id, 'buy')}
                     disabled={submitting || game.state === 'review'}
                   >
                     Buy
                   </button>
                   <button
+                    className="btn"
                     onClick={() => handleTrade(c.id, 'short')}
                     disabled={submitting || game.state === 'review'}
-                    style={{ marginLeft: 8 }}
                   >
                     Short
                   </button>
-                </td>
-                <td>
-                  {(() => {
-                    const pos = positions[c.id] || 0;
-                    const unit = c.prices[round] || 0;
-                    const tot = pos * unit;
-                    const sign = pos > 0 ? '+' : pos < 0 ? '-' : '';
-                    const totSign = tot > 0 ? '+' : tot < 0 ? '-' : '';
-                    return `${sign}${Math.abs(pos)} units @ $${unit.toFixed(
-                      2
-                    )} each (total ${totSign}$${Math.abs(tot).toFixed(2)})`;
-                  })()}
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+                </div>
+              </div>
+
+              {/* line 3: position (colored) */}
+              <div className="row">
+                <div className="position">
+                  {renderPositionText(c.id, unit)}
+                </div>
+              </div>
+            </div>
+          );
+        })}
       </div>
     </div>
   );

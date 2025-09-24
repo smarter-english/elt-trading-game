@@ -10,11 +10,13 @@
         ".read": "auth != null && (auth.uid === $uid || root.child('users').child(auth.uid).child('role').val() === 'admin')",
         ".write": "auth != null && (auth.uid === $uid || root.child('users').child(auth.uid).child('role').val() === 'admin')",
 
-        "firstName": { ".validate": "newData.isString() && newData.val().length >= 1 && newData.val().length <= 40" },
-        "lastName":  { ".validate": "newData.isString() && newData.val().length >= 1 && newData.val().length <= 40" },
-        "email":     { ".validate": "newData.isString() && newData.val().matches(/^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/)" },
-        "role":      { ".validate": "newData.isString() && newData.val().matches(/^(admin|teacher|pending_teacher|student)$/)" },
-        "createdAt": { ".validate": "newData.isNumber()" },
+        "firstName":   { ".validate": "newData.isString() && newData.val().length >= 1 && newData.val().length <= 40" },
+        "lastName":    { ".validate": "newData.isString() && newData.val().length >= 1 && newData.val().length <= 40" },
+        "displayName": { ".validate": "newData.isString() && newData.val().length >= 1 && newData.val().length <= 80" },
+        "email":       { ".validate": "newData.isString() && newData.val().matches(/^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/)" },
+        "role":        { ".validate": "newData.isString() && newData.val().matches(/^(admin|teacher|pending_teacher|student)$/)" },
+        "createdAt":   { ".validate": "newData.isNumber()" },
+        "updatedAt":   { ".validate": "newData.isNumber()" },
 
         "$other": { ".validate": false }
       }
@@ -24,7 +26,6 @@
       ".read": "auth != null",
       ".write": "auth != null && (root.child('users').child(auth.uid).child('role').val() === 'teacher' || root.child('users').child(auth.uid).child('role').val() === 'admin')",
       "$code": {
-        // key is 6-char join code; value is the gameId string
         ".validate": "newData.isString() && newData.val().length > 0"
       }
     },
@@ -41,6 +42,8 @@
           ".validate": "newData.isString() && newData.val().length >= 1 && newData.val().length <= 60"
         },
         "createdBy": { ".validate": "newData.isString() && newData.val().length >= 1" },
+        "createdAt": { ".validate": "newData.isNumber()" },
+        "updatedAt": { ".validate": "newData.isNumber()" },
         "currentRound": {
           ".write": "auth != null && (root.child('users').child(auth.uid).child('role').val() === 'admin' || root.child('games').child($gameId).child('createdBy').val() === auth.uid)",
           ".validate": "newData.isNumber() && newData.val() >= 0 && newData.val() % 1 == 0"
@@ -60,10 +63,15 @@
             ".read": "auth != null",
             ".write": "auth != null && (auth.uid === $uid || root.child('users').child(auth.uid).child('role').val() === 'admin' || root.child('games').child($gameId).child('createdBy').val() === auth.uid)",
 
-            "name":      { ".validate": "newData.isString() && newData.val().length >= 2 && newData.val().length <= 30" },
-            "teamName":  { ".validate": "newData.isString() && newData.val().length >= 2 && newData.val().length <= 30" },
-            "password":  { ".validate": "newData.isString() && newData.val().length >= 3 && newData.val().length <= 20" },
-            "joinedAt":  { ".validate": "newData.isNumber()" },
+            "name":         { ".validate": "newData.isString() && newData.val().length >= 2 && newData.val().length <= 30" },
+            "teamName":     { ".validate": "newData.isString() && newData.val().length >= 2 && newData.val().length <= 30" },
+            "password":     { ".validate": "newData.isString() && newData.val().length >= 3 && newData.val().length <= 20" },
+            "teamPassword": { ".validate": "newData.isString() && newData.val().length >= 3 && newData.val().length <= 20" },
+            "joinedAt":     { ".validate": "newData.isNumber()" },
+
+            /* allow benign extras some clients write */
+            "uid":          { ".validate": "newData.isString() && newData.val() === $uid" },
+            "gameId":       { ".validate": "newData.isString() && newData.val() === $gameId" },
 
             "$other": { ".validate": false }
           }

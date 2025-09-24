@@ -1,0 +1,56 @@
+.brandbar {
+  position: sticky;
+  top: 0;
+  z-index: 20;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 8px 12px;
+  background: #ffffff;
+  border-bottom: 1px solid #ececec;
+}
+
+.brand-left {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 44px;
+}
+
+.brand-logo {
+  width: 24px;
+  height: 24px;
+  object-fit: contain;
+}
+
+.brand-title {
+  font-weight: 600;
+  line-height: 1.2;
+  display: inline-block;
+}
+
+.brand-prefix { color: #374151; }
+.accent { color: #0b72b9; }       /* SMARTER ENGLISH stays blue */
+.brand-suffix { color: #111827; }
+
+.logout-btn {
+  background: #f3f4f6;
+  border: 1px solid #d1d5db;
+  border-radius: 12px;
+  padding: 6px 12px;
+  font-size: 14px;
+  cursor: pointer;
+}
+.logout-btn:hover { background: #e5e7eb; }
+
+.mobile-br { display: none; }
+
+/* —— Mobile: line break + larger logo/button, a little taller bar —— */
+@media (max-width: 700px) {
+  .brandbar { padding: 10px 14px; }
+  .brand-logo { width: 30px; height: 30px; }
+  .logout-btn { font-size: 16px; padding: 8px 14px; }
+  .mobile-br { display: inline; }       /* the magic line break */
+  .brand-title { line-height: 1.15; }
+}

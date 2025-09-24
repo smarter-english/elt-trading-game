@@ -1,0 +1,207 @@
+/* ----- Visibility helpers ----- */
+.hide-on-mobile { }
+@media (max-width: 700px) { .hide-on-mobile { display: none !important; } }
+.desktop-only { display: block; }
+.mobile-only { display: none !important; }
+@media (max-width: 900px) {
+  .desktop-only { display: none !important; }
+  .mobile-only { display: block !important; }
+}
+
+/* ----- Sticky HUD just under BrandBar ----- */
+.hud-sticky {
+  position: sticky;
+  top: 44px;             /* adjust if your BrandBar is taller */
+  z-index: 8;
+  background: #fff;
+  border-bottom: 1px solid #eee;
+  padding: 6px 12px 10px;
+}
+.hud-stats { margin-top: 8px; }
+
+/* ----- Odometer grid: 4 cols desktop, 2 cols phones, 1 col tiny screens ----- */
+.statgrid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(180px, 1fr));
+  gap: 12px;
+  align-items: stretch;
+  margin: 8px 12px 14px;
+}
+@media (max-width: 900px) {
+  .statgrid { grid-template-columns: repeat(2, minmax(150px, 1fr)); }
+}
+@media (max-width: 380px) {
+  .statgrid { grid-template-columns: 1fr; }
+}
+
+/* ----- Toast rail: reserves space (no layout shift) ----- */
+.toast-rail {
+  height: 36px;             /* fixed slot so content doesn't jump */
+  position: sticky;
+  top: calc(44px + 0px);    /* sits under the BrandBar; tweak if needed */
+  z-index: 7;
+  background: #fff;
+  border-bottom: 1px solid #f3f4f6;
+  display: flex;
+  align-items: center;
+  padding: 0 12px;
+}
+.toast {
+  opacity: 0;
+  transform: translateY(-4px);
+  transition: opacity 160ms ease, transform 160ms ease;
+  font-size: 14px;
+  color: #065f46;
+  background: #ecfdf5;
+  border: 1px solid #a7f3d0;
+  border-radius: 8px;
+  padding: 6px 10px;
+  box-shadow: 0 1px 2px rgba(0,0,0,.04);
+}
+.toast.error { color: #991b1b; background: #fef2f2; border-color: #fecaca; }
+.toast.show { opacity: 1; transform: translateY(0); }
+
+/* =========================
+   DESKTOP TRADE TABLE (compact)
+   ========================= */
+.trade-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+.trade-table thead th {
+  text-align: left;
+  font-weight: 600;
+  padding: 6px 8px;
+  border-bottom: 1px solid #e5e7eb;
+}
+.trade-table td {
+  padding: 4px 6px;             /* thinner rows */
+  line-height: 1.2;
+  vertical-align: middle;
+  border-top: 1px solid #f3f4f6;
+  white-space: nowrap;
+}
+.trade-table td:nth-child(1) { white-space: normal; }
+
+/* compact inputs & buttons on desktop */
+.input-qty {
+  width: 90px;
+  height: 28px;
+  font-size: 14px;
+  padding: 4px 6px;
+  border: 1px solid #d1d5db;
+  border-radius: 6px;
+}
+.btn {
+  padding: 6px 10px;
+  border-radius: 6px;
+  border: 1px solid #d1d5db;
+  background: #f9fafb;
+  cursor: pointer;
+}
+.btn:disabled { opacity: .5; cursor: default; }
+.btn.primary { border-color: #2563eb; background: #3b82f6; color: #fff; }
+
+/* position color coding */
+.pos-long  { color: #b91c1c; font-weight: 600; }  /* red for bought (long) */
+.pos-short { color: #065f46; font-weight: 600; }  /* green for short */
+.pos-flat  { color: #6b7280; }
+
+/* =========================
+   MOBILE TRADE CARDS (3 lines + steppers)
+   ========================= */
+@media (max-width: 900px) {
+  .trade-cards {
+    display: grid;
+    gap: 10px;
+    padding: 8px 12px 24px;
+  }
+  .card-compact {
+    background: #fff;
+    border: 1px solid #e5e7eb;
+    border-radius: 10px;
+    padding: 10px;
+    /* sizing vars so it’s easy to tweak */
+    --qtyWidth: 60px;     /* input width */
+    --btnH: 36px;         /* shared control height */
+    --stepperSize: 36px;  /* +/- buttons */
+  }
+  .card-compact .row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+  }
+  .card-compact .row + .row { margin-top: 6px; }
+
+  .card-compact .title { font-weight: 600; }
+  .card-compact .price { color: #374151; }
+
+  /* Quantity cluster laid out as a fixed 3-column grid: [-] [input] [+] */
+  .card-compact .qtyCluster {
+    display: grid;
+    grid-template-columns: var(--stepperSize) var(--qtyWidth) var(--stepperSize);
+    align-items: center;
+    gap: 6px;
+  }
+
+  /* Normalize sizing + remove iOS/Chrome number spinners */
+  .card-compact .qty input,
+  .card-compact .stepperBtn {
+    box-sizing: border-box;
+    height: var(--btnH);
+  }
+  .card-compact .qty input[type="number"] {
+    -webkit-appearance: none;
+       -moz-appearance: textfield;
+            appearance: textfield;
+    width: 100%;
+    font-size: 16px;        /* avoids iOS zoom on focus */
+    padding: 4px 6px;
+    border: 1px solid #d1d5db;
+    border-radius: 8px;
+    text-align: center;
+    line-height: normal;
+  }
+  .card-compact .qty input[type="number"]::-webkit-outer-spin-button,
+  .card-compact .qty input[type="number"]::-webkit-inner-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
+  }
+
+  /* +/- buttons */
+  .card-compact .stepperBtn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: var(--stepperSize);
+    border: 1px solid #d1d5db;
+    background: #f9fafb;
+    border-radius: 8px;
+    font-size: 18px;
+    font-weight: 600;
+    user-select: none;
+    cursor: pointer;
+  }
+  .card-compact .stepperBtn:disabled { opacity: .5; cursor: default; }
+
+  /* Actions beside the cluster */
+  .card-compact .actions {
+    display: flex;
+    gap: 8px;
+    white-space: nowrap;
+  }
+  .card-compact .actions .btn {
+    height: var(--btnH);
+    line-height: normal;
+    padding: 0 10px;
+    border-radius: 8px;
+    font-size: 14px;
+  }
+
+  /* ultra-small phones */
+  @media (max-width: 360px) {
+    .card-compact { --qtyWidth: 54px; --stepperSize: 34px; --btnH: 34px; }
+    .card-compact .actions .btn { padding: 0 8px; font-size: 13px; }
+  }
+}
