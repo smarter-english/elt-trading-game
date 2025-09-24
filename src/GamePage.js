@@ -42,19 +42,51 @@ export default function GamePage() {
     });
   }, [gameId]);
 
-  // Portfolio
+  // Seed portfolio ONLY if missing (never overwrite)
   useEffect(() => {
     const uid = auth.currentUser?.uid;
     if (!uid || !gameId) return;
-    return onValue(ref(database, `games/${gameId}/portfolios/${uid}`), (snap) => {
+    const pfRef = ref(database, `games/${gameId}/portfolios/${uid}`);
+    // Use a one-shot read via onValue to check existence and seed transactionally
+    let first = true;
+    const off = onValue(pfRef, (snap) => {
+      if (first && !snap.exists()) {
+        runTransaction(pfRef, (cur) => {
+          // Only set defaults if node is still missing
+          return cur || {
+            cash: INITIAL_CAPITAL,
+            positions: {},
+            creditCap: Math.round(INITIAL_CAPITAL * CREDIT_MULTIPLIER),
+          };
+        });
+      }
+      first = false;
+    });
+    return () => off();
+  }, [gameId]);
+
+  // Subscribe to portfolio (do NOT fallback to INITIAL_CAPITAL if snapshot is empty)
+  useEffect(() => {
+    const uid = auth.currentUser?.uid;
+    if (!uid || !gameId) return;
+    const pfRef = ref(database, `games/${gameId}/portfolios/${uid}`);
+    return onValue(pfRef, (snap) => {
+      if (!snap.exists()) {
+        // Keep previous UI values to avoid "snap back" during teacher multi-path updates
+        return;
+      }
       const raw = snap.val() || {};
-      const cash = typeof raw.cash === 'number' ? raw.cash : INITIAL_CAPITAL;
+      const cash =
+        typeof raw.cash === 'number' ? raw.cash : (portfolio?.cash ?? INITIAL_CAPITAL);
       const positions = raw.positions || {};
       const creditCap =
-        typeof raw.creditCap === 'number' ? raw.creditCap : cash * CREDIT_MULTIPLIER;
+        typeof raw.creditCap === 'number'
+          ? raw.creditCap
+          : Math.round(cash * CREDIT_MULTIPLIER);
       setPf({ cash, positions, creditCap });
     });
-  }, [gameId]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [gameId]); // don't depend on portfolio here to avoid loops
 
   // Commodities (one-time)
   useEffect(() => {
@@ -85,7 +117,9 @@ export default function GamePage() {
       }
     })();
 
-    return () => { alive = false; };
+    return () => {
+      alive = false;
+    };
   }, [game?.currentRound]);
 
   if (!game || !portfolio || commodities.length === 0) return <p>Loading…</p>;
@@ -136,9 +170,12 @@ export default function GamePage() {
       const uid = auth.currentUser.uid;
       const pfRef = ref(database, `games/${gameId}/portfolios/${uid}`);
       await runTransaction(pfRef, (curr) => {
-        const prevCash = curr?.cash ?? INITIAL_CAPITAL;
+        // Use current DB values; if missing, seed from INITIAL_CAPITAL (first trade case only)
+        const prevCash = typeof curr?.cash === 'number' ? curr.cash : INITIAL_CAPITAL;
         const prevCap =
-          typeof curr?.creditCap === 'number' ? curr.creditCap : prevCash * CREDIT_MULTIPLIER;
+          typeof curr?.creditCap === 'number'
+            ? curr.creditCap
+            : Math.round(prevCash * CREDIT_MULTIPLIER);
 
         const newCash = prevCash + (action === 'short' ? cost : -cost);
         const newPos = { ...(curr?.positions || {}) };
@@ -358,9 +395,7 @@ export default function GamePage() {
 
               {/* line 3: position (colored) */}
               <div className="row">
-                <div className="position">
-                  {renderPositionText(c.id, unit)}
-                </div>
+                <div className="position">{renderPositionText(c.id, unit)}</div>
               </div>
             </div>
           );
