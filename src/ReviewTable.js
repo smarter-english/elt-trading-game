@@ -1,102 +1,98 @@
 // src/ReviewTable.js
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
+import { ref, onValue } from 'firebase/database';
 import { database } from './firebase';
-import { ref, get } from 'firebase/database';
 
-// 🔹 Same normalization as TeacherGamePage
-const normName = (s) =>
-  (s || '')
-    .toString()
-    .normalize('NFKD')
-    .replace(/[\u0300-\u036f]/g, '')
-    .replace(/[^a-z0-9]/gi, '')
-    .toLowerCase();
+const norm = (s) => (typeof s === 'string' ? s.trim().toLowerCase() : '');
 
-export default function ReviewTable({ gameId, highlightedEffects = {} }) {
-  const [teams, setTeams] = useState([]);
-  const [commodities, setCommodities] = useState([]);
-  const [positionsMap, setPositionsMap] = useState({});
-  const [loading, setLoading] = useState(true);
+export default function ReviewTable({ gameId, round, commodities, headlines, reveals }) {
+  const [teams, setTeams] = useState({});
+  const [portfolios, setPortfolios] = useState({});
 
   useEffect(() => {
-    async function loadData() {
-      setLoading(true);
-      // Load teams and their names
-      const teamsSnap = await get(ref(database, `games/${gameId}/teams`));
-      const teamsRaw = teamsSnap.val() || {};
-      const teamsArr = Object.entries(teamsRaw).map(([uid, data]) => ({
-        uid,
-        teamName: data.teamName,
-      }));
-      setTeams(teamsArr);
-
-      // Load commodities list
-      const commSnap = await get(ref(database, 'constants/commodities'));
-      const commRaw = commSnap.val() || {};
-      const commList = Array.isArray(commRaw)
-        ? commRaw.map((c, i) => ({ id: c.id || `commodity-${i}`, name: c.name }))
-        : Object.entries(commRaw).map(([id, c]) => ({ id, name: c.name }));
-      setCommodities(commList);
-
-      // Load positions for each team
-      const posMap = {};
-      for (const { uid } of teamsArr) {
-        const posSnap = await get(ref(database, `games/${gameId}/portfolios/${uid}/positions`));
-        posMap[uid] = posSnap.val() || {};
-      }
-      setPositionsMap(posMap);
-      setLoading(false);
-    }
-
-    loadData();
+    if (!gameId) return;
+    const off1 = onValue(ref(database, `games/${gameId}/teams`), (s) => setTeams(s.val() || {}));
+    const off2 = onValue(ref(database, `games/${gameId}/portfolios`), (s) => setPortfolios(s.val() || {}));
+    return () => { off1(); off2(); };
   }, [gameId]);
 
-  if (loading) return <p>Loading review table…</p>;
-  if (teams.length === 0) return <p>No teams have joined this game yet.</p>;
+  // Map: normalized commodity name -> commodityId
+  const nameToId = useMemo(() => {
+    const map = {};
+    (commodities || []).forEach((c) => {
+      if (!c) return;
+      map[norm(c.name)] = c.id;
+    });
+    return map;
+  }, [commodities]);
+
+  // Build effect map from revealed headlines for this round
+  // { [commodityId]: 'up' | 'down' }
+  const effectByCommodityId = useMemo(() => {
+    const effMap = {};
+    if (!Array.isArray(headlines)) return effMap;
+    headlines.forEach((h, idx) => {
+      const revealed = reveals?.[idx] === true || reveals?.[idx] === 'true' || reveals?.[idx] === 1;
+      if (!revealed) return;
+      const eff = Array.isArray(h?.effects) && h.effects.length ? h.effects[0] : null;
+      if (!eff) return;
+      const cid = nameToId[norm(eff.commodity)];
+      if (!cid) return;
+      // If multiple revealed headlines hit the same commodity, last one wins (simple approach)
+      const dir = String(eff.change || '').toLowerCase() === 'up' ? 'up' : 'down';
+      effMap[cid] = dir;
+    });
+    return effMap;
+  }, [headlines, reveals, nameToId]);
+
+  const teamList = useMemo(
+    () => Object.entries(teams).map(([uid, t]) => ({ uid, name: t.name || t.teamName || uid })),
+    [teams]
+  );
+
+  const rows = useMemo(() => commodities || [], [commodities]);
+
+  const cellStyle = (cid, qty) => {
+    const dir = effectByCommodityId[cid];
+    if (!dir || !qty) return { background: 'transparent' };
+    const good = (dir === 'up' && qty > 0) || (dir === 'down' && qty < 0);
+    return {
+      background: good ? '#ecfdf5' : '#fee2e2',
+      color: good ? '#065f46' : '#7c2d12',
+      fontWeight: 600
+    };
+  };
 
   return (
-    <table style={{ width: '100%', borderCollapse: 'collapse', marginTop: 12 }}>
-      <thead>
-        <tr>
-          <th style={{ padding: 8, border: '1px solid #ddd' }}>Commodity</th>
-          {teams.map((t) => (
-            <th key={t.uid} style={{ padding: 8, border: '1px solid #ddd' }}>
-              {t.teamName}
-            </th>
-          ))}
-        </tr>
-      </thead>
-      <tbody>
-        {commodities.map((c) => (
-          <tr key={c.id}>
-            <td style={{ padding: 8, border: '1px solid #ddd' }}>{c.name}</td>
-            {teams.map((t) => {
-              const qty = positionsMap[t.uid]?.[c.id] ?? 0;
-              // 🔹 Use normalized name for effect lookup
-              const effect = highlightedEffects[normName(c.name)]; // 'up' or 'down'
-              let bg = 'transparent';
-              if (effect === 'down') {
-                bg = qty < 0 ? '#d4edda' /* green */ : '#f8d7da' /* red */;
-              } else if (effect === 'up') {
-                bg = qty > 0 ? '#d4edda' : '#f8d7da';
-              }
-              return (
-                <td
-                  key={t.uid}
-                  style={{
-                    textAlign: 'center',
-                    padding: 8,
-                    border: '1px solid #ddd',
-                    backgroundColor: bg,
-                  }}
-                >
-                  {qty}
-                </td>
-              );
-            })}
+    <div style={{ border: '1px solid #e5e7eb', borderRadius: 12, overflow: 'hidden' }}>
+      <table className="trade-table" style={{ width: '100%', borderCollapse: 'collapse' }}>
+        <thead>
+          <tr>
+            <th style={{ padding: '10px 8px' }}>Commodity</th>
+            {teamList.map((t) => (
+              <th key={t.uid} style={{ padding: '10px 8px' }}>{t.name}</th>
+            ))}
           </tr>
-        ))}
-      </tbody>
-    </table>
+        </thead>
+        <tbody>
+          {rows.map((c) => {
+            const cid = c.id;
+            return (
+              <tr key={cid}>
+                <td style={{ padding: '8px', fontWeight: 600 }}>{c.name}</td>
+                {teamList.map((t) => {
+                  const pos = portfolios?.[t.uid]?.positions?.[cid] || 0;
+                  return (
+                    <td key={t.uid} style={{ padding: '8px', textAlign: 'center', ...cellStyle(cid, pos) }}>
+                      {pos ? `${pos > 0 ? '+' : ''}${pos} units` : '—'}
+                    </td>
+                  );
+                })}
+              </tr>
+            );
+          })}
+        </tbody>
+      </table>
+    </div>
   );
 }
