@@ -1,98 +1,73 @@
-// src/ReviewTable.js
-import React, { useEffect, useMemo, useState } from 'react';
-import { ref, onValue } from 'firebase/database';
-import { database } from './firebase';
+import React, { useMemo } from 'react';
 
-const norm = (s) => (typeof s === 'string' ? s.trim().toLowerCase() : '');
+const normName = (s) =>
+  (s || '')
+    .toString()
+    .normalize('NFKD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/[^a-z0-9]/gi, '')
+    .toLowerCase();
 
-export default function ReviewTable({ gameId, round, commodities, headlines, reveals }) {
-  const [teams, setTeams] = useState({});
-  const [portfolios, setPortfolios] = useState({});
-
-  useEffect(() => {
-    if (!gameId) return;
-    const off1 = onValue(ref(database, `games/${gameId}/teams`), (s) => setTeams(s.val() || {}));
-    const off2 = onValue(ref(database, `games/${gameId}/portfolios`), (s) => setPortfolios(s.val() || {}));
-    return () => { off1(); off2(); };
-  }, [gameId]);
-
-  // Map: normalized commodity name -> commodityId
-  const nameToId = useMemo(() => {
-    const map = {};
-    (commodities || []).forEach((c) => {
-      if (!c) return;
-      map[norm(c.name)] = c.id;
-    });
-    return map;
-  }, [commodities]);
-
-  // Build effect map from revealed headlines for this round
-  // { [commodityId]: 'up' | 'down' }
-  const effectByCommodityId = useMemo(() => {
-    const effMap = {};
-    if (!Array.isArray(headlines)) return effMap;
-    headlines.forEach((h, idx) => {
-      const revealed = reveals?.[idx] === true || reveals?.[idx] === 'true' || reveals?.[idx] === 1;
-      if (!revealed) return;
-      const eff = Array.isArray(h?.effects) && h.effects.length ? h.effects[0] : null;
-      if (!eff) return;
-      const cid = nameToId[norm(eff.commodity)];
-      if (!cid) return;
-      // If multiple revealed headlines hit the same commodity, last one wins (simple approach)
-      const dir = String(eff.change || '').toLowerCase() === 'up' ? 'up' : 'down';
-      effMap[cid] = dir;
-    });
-    return effMap;
-  }, [headlines, reveals, nameToId]);
-
+/**
+ * Props:
+ * - commodities: [{id, name, prices: number[]}, ...]
+ * - teams: { uid: { teamName } }
+ * - portfolios: { uid: { cash, positions: { [commodityId]: qty } } }
+ * - highlightedEffects: { [normalizedCommodityName]: 'up' | 'down' }
+ */
+export default function ReviewTable({ commodities = [], teams = {}, portfolios = {}, highlightedEffects = {} }) {
   const teamList = useMemo(
-    () => Object.entries(teams).map(([uid, t]) => ({ uid, name: t.name || t.teamName || uid })),
+    () =>
+      Object.entries(teams).map(([uid, t]) => ({
+        uid,
+        name: t?.teamName || t?.name || uid.slice(0, 6)
+      })),
     [teams]
   );
 
-  const rows = useMemo(() => commodities || [], [commodities]);
+  const rows = useMemo(() => {
+    return commodities.map((c) => {
+      const norm = normName(c?.name);
+      const eff = highlightedEffects[norm]; // 'up' | 'down' | undefined
+      return { ...c, _norm: norm, _eff: eff };
+    });
+  }, [commodities, highlightedEffects]);
 
-  const cellStyle = (cid, qty) => {
-    const dir = effectByCommodityId[cid];
-    if (!dir || !qty) return { background: 'transparent' };
-    const good = (dir === 'up' && qty > 0) || (dir === 'down' && qty < 0);
-    return {
-      background: good ? '#ecfdf5' : '#fee2e2',
-      color: good ? '#065f46' : '#7c2d12',
-      fontWeight: 600
-    };
+  const cellStyle = (qty, eff) => {
+    if (!eff || !qty) return { background: 'transparent' }; // unrevealed or flat
+    const good = (eff === 'up' && qty > 0) || (eff === 'down' && qty < 0);
+    const bad = (eff === 'up' && qty < 0) || (eff === 'down' && qty > 0);
+    if (good) return { background: 'rgba(0, 180, 0, 0.13)' };
+    if (bad) return { background: 'rgba(220, 0, 0, 0.12)' };
+    return { background: 'transparent' };
   };
 
   return (
-    <div style={{ border: '1px solid #e5e7eb', borderRadius: 12, overflow: 'hidden' }}>
-      <table className="trade-table" style={{ width: '100%', borderCollapse: 'collapse' }}>
-        <thead>
-          <tr>
-            <th style={{ padding: '10px 8px' }}>Commodity</th>
-            {teamList.map((t) => (
-              <th key={t.uid} style={{ padding: '10px 8px' }}>{t.name}</th>
-            ))}
+    <table className="trade-table">
+      <thead>
+        <tr>
+          <th>Commodity</th>
+          {teamList.map((t) => (
+            <th key={t.uid} style={{ textAlign: 'right' }}>{t.name}</th>
+          ))}
+        </tr>
+      </thead>
+      <tbody>
+        {rows.map((c) => (
+          <tr key={c.id}>
+            <td>{c.name}</td>
+            {teamList.map((t) => {
+              const qty = Number(portfolios?.[t.uid]?.positions?.[c.id] || 0);
+              const sign = qty > 0 ? '+' : qty < 0 ? '' : '';
+              return (
+                <td key={t.uid} style={{ ...cellStyle(qty, c._eff), textAlign: 'right' }}>
+                  {qty ? `${sign}${qty}` : '—'}
+                </td>
+              );
+            })}
           </tr>
-        </thead>
-        <tbody>
-          {rows.map((c) => {
-            const cid = c.id;
-            return (
-              <tr key={cid}>
-                <td style={{ padding: '8px', fontWeight: 600 }}>{c.name}</td>
-                {teamList.map((t) => {
-                  const pos = portfolios?.[t.uid]?.positions?.[cid] || 0;
-                  return (
-                    <td key={t.uid} style={{ padding: '8px', textAlign: 'center', ...cellStyle(cid, pos) }}>
-                      {pos ? `${pos > 0 ? '+' : ''}${pos} units` : '—'}
-                    </td>
-                  );
-                })}
-              </tr>
-            );
-          })}
-        </tbody>
-      </table>
-    </div>
+        ))}
+      </tbody>
+    </table>
   );
 }
