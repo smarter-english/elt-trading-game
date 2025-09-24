@@ -11,15 +11,14 @@ import {
   query,
   orderByChild,
   equalTo,
+  update,
 } from 'firebase/database';
 import BrandBar from './BrandBar';
 
 const CODE_ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
 function makeCode(n = 6) {
   let s = '';
-  for (let i = 0; i < n; i++) {
-    s += CODE_ALPHABET[Math.floor(Math.random() * CODE_ALPHABET.length)];
-  }
+  for (let i = 0; i < n; i++) s += CODE_ALPHABET[Math.floor(Math.random() * CODE_ALPHABET.length)];
   return s;
 }
 
@@ -45,9 +44,10 @@ export default function TeacherDashboard() {
     const unsub = onAuthStateChanged(auth, (u) => {
       setUid(u?.uid || null);
       if (u?.uid) {
-        onValue(ref(database, `users/${u.uid}`), (snap) => {
+        const off = onValue(ref(database, `users/${u.uid}`), (snap) => {
           setProfile(snap.val() || { email: u.email || '' });
         });
+        return () => off();
       } else {
         setProfile(null);
       }
@@ -71,56 +71,61 @@ export default function TeacherDashboard() {
           teamCount: teams,
         };
       });
-      // newest first
       list.sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
       setGames(list);
     });
     return () => off();
   }, [uid]);
 
+  const withToast = (msg, ms = 1800) => {
+    setToast(msg);
+    setTimeout(() => setToast(''), ms);
+  };
+
   const copy = async (text) => {
     try {
       await navigator.clipboard.writeText(text);
-      setToast('Code copied!');
-      setTimeout(() => setToast(''), 1500);
+      withToast('Code copied!');
     } catch {
-      setToast('Copy failed');
-      setTimeout(() => setToast(''), 1500);
+      withToast('Copy failed');
     }
   };
 
+  // Create game with atomic multi-path update (games + gamesByCode)
   const createGame = async (e) => {
     e.preventDefault();
-    if (!uid) return;
+    if (!uid) {
+      withToast('Please log in first', 2000);
+      return;
+    }
     setCreating(true);
     try {
       const code = makeCode(6);
-      const gamesRef = ref(database, 'games');
-      const newRef = push(gamesRef);
-      const gameId = newRef.key;
-
+      const name = newGameName.trim() || `My Game ${new Date().toLocaleDateString()}`;
       const payload = {
-        name: newGameName.trim() || `My Game ${new Date().toLocaleDateString()}`,
-        createdBy: uid,
+        name,
+        createdBy: uid,               // IMPORTANT for rules on first write
         createdAt: Date.now(),
         code,
         currentRound: 0,
-        state: 'play', // or 'review'
+        state: 'play',
       };
 
-      await set(newRef, payload);
-      await set(ref(database, `gamesByCode/${code}`), gameId);
+      const newRef = push(ref(database, 'games'));
+      const gameId = newRef.key;
+
+      const updates = {};
+      updates[`games/${gameId}`] = payload;
+      updates[`gamesByCode/${code}`] = gameId;
+
+      await update(ref(database), updates);
 
       setNewGameName('');
-      setToast(`Game created. Code: ${code}`);
-      setTimeout(() => setToast(''), 2000);
-
-      // Jump into the game management page
+      withToast(`Game created. Code: ${code}`, 2200);
       navigate(`/teacher/game/${gameId}`);
     } catch (err) {
       console.warn('Create game failed', err);
-      setToast('Failed to create game');
-      setTimeout(() => setToast(''), 2000);
+      withToast('Failed to create game', 2200);
     } finally {
       setCreating(false);
     }
