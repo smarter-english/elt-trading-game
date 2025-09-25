@@ -14,24 +14,32 @@ export default function GamePage() {
   const navigate = useNavigate();
 
   const [game, setGame] = useState(null);
-  const [commodities, setCommod] = useState([]);
+
+  // team info
+  const [teamName, setTeamName] = useState('');
+  const [teamStatus, setTeamStatus] = useState(undefined); // 'pending' | 'approved' | 'kicked' | 'rejected' | undefined (not on a team)
+
+  // portfolio & market
   const [portfolio, setPf] = useState(null);
+  const [commodities, setCommod] = useState([]);
+
+  // UI
   const [qtys, setQtys] = useState({});
   const [submitting, setSub] = useState(false);
-  const [teamName, setTeamName] = useState('');
   const [toast, setToast] = useState('');
   const [toastType, setToastType] = useState('success');
 
+  // headlines (desktop)
   const [headlinesList, setHeadlinesList] = useState([]);
   const [headlineLoading, setHeadlineLoading] = useState(true);
 
-  // Game meta
+  // ----- Game meta -----
   useEffect(() => {
     if (!gameId) return;
     return onValue(ref(database, `games/${gameId}`), (snap) => setGame(snap.val()));
   }, [gameId]);
 
-  // Team name
+  // ----- Team record (name + status) -----
   useEffect(() => {
     const uid = auth.currentUser?.uid;
     if (!uid || !gameId) return;
@@ -39,20 +47,22 @@ export default function GamePage() {
     return onValue(teamRef, (snap) => {
       const t = snap.val();
       setTeamName((t && (t.name || t.teamName)) || '');
+      setTeamStatus(t?.status); // may be undefined if not joined
     });
   }, [gameId]);
 
-  // Seed portfolio ONLY if missing (never overwrite)
+  // ----- Seed portfolio ONLY when approved -----
   useEffect(() => {
     const uid = auth.currentUser?.uid;
     if (!uid || !gameId) return;
+    if (teamStatus !== 'approved') return; // don’t write while pending/kicked/rejected
+
     const pfRef = ref(database, `games/${gameId}/portfolios/${uid}`);
-    // Use a one-shot read via onValue to check existence and seed transactionally
     let first = true;
     const off = onValue(pfRef, (snap) => {
       if (first && !snap.exists()) {
         runTransaction(pfRef, (cur) => {
-          // Only set defaults if node is still missing
+          // Only set defaults if still missing
           return cur || {
             cash: INITIAL_CAPITAL,
             positions: {},
@@ -63,21 +73,21 @@ export default function GamePage() {
       first = false;
     });
     return () => off();
-  }, [gameId]);
+  }, [gameId, teamStatus]);
 
-  // Subscribe to portfolio (do NOT fallback to INITIAL_CAPITAL if snapshot is empty)
+  // ----- Subscribe to portfolio (approved only) -----
   useEffect(() => {
     const uid = auth.currentUser?.uid;
     if (!uid || !gameId) return;
+    if (teamStatus !== 'approved') {
+      setPf(null);
+      return;
+    }
     const pfRef = ref(database, `games/${gameId}/portfolios/${uid}`);
     return onValue(pfRef, (snap) => {
-      if (!snap.exists()) {
-        // Keep previous UI values to avoid "snap back" during teacher multi-path updates
-        return;
-      }
+      if (!snap.exists()) return;
       const raw = snap.val() || {};
-      const cash =
-        typeof raw.cash === 'number' ? raw.cash : (portfolio?.cash ?? INITIAL_CAPITAL);
+      const cash = typeof raw.cash === 'number' ? raw.cash : INITIAL_CAPITAL;
       const positions = raw.positions || {};
       const creditCap =
         typeof raw.creditCap === 'number'
@@ -85,10 +95,9 @@ export default function GamePage() {
           : Math.round(cash * CREDIT_MULTIPLIER);
       setPf({ cash, positions, creditCap });
     });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [gameId]); // don't depend on portfolio here to avoid loops
+  }, [gameId, teamStatus]);
 
-  // Commodities (one-time)
+  // ----- Commodities (one-time) -----
   useEffect(() => {
     get(ref(database, 'constants/commodities')).then((snap) => {
       const raw = snap.val() || {};
@@ -99,7 +108,7 @@ export default function GamePage() {
     });
   }, []);
 
-  // Headlines per round (one-time per round) – kept for desktop only
+  // ----- Headlines per round (desktop) -----
   useEffect(() => {
     const round = game?.currentRound;
     if (round == null) return;
@@ -122,12 +131,97 @@ export default function GamePage() {
     };
   }, [game?.currentRound]);
 
-  if (!game || !portfolio || commodities.length === 0) return <p>Loading…</p>;
+  // Early skeleton while loading game
+  if (!game) return <p>Loading…</p>;
+
+  const round = game.currentRound ?? 0;
+
+  // ----- Gate: not in a team -----
+  if (teamStatus === undefined) {
+    return (
+      <div>
+        <BrandBar showLogout />
+        <div className="hud-sticky">
+          <div style={{ fontWeight: 600 }}>
+            Game: {game.name} &nbsp;•&nbsp; Month {round + 1}
+          </div>
+        </div>
+        <div style={{ padding: 16 }}>
+          <h2>Not joined</h2>
+          <p>
+            You’re not part of this game yet. Go back to the lobby and join with the teacher’s
+            code.
+          </p>
+          <button className="btn" onClick={() => navigate('/lobby')}>
+            Back to Lobby
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  // ----- Gate: pending / kicked / rejected -----
+  if (teamStatus !== 'approved') {
+    const statusMsg =
+      teamStatus === 'pending'
+        ? 'Waiting for teacher approval'
+        : teamStatus === 'kicked'
+        ? 'Your team has been removed from this game.'
+        : 'Your join request was not approved.';
+
+    return (
+      <div>
+        <BrandBar showLogout />
+        <div className="hud-sticky">
+          <div style={{ fontWeight: 600 }}>
+            <p className="meta-line">
+              <span>Game: {game?.name || '—'}</span>
+              <span className="meta-dot only-desktop" />
+              <span>Month {Number(game?.currentRound ?? 0) + 1}</span>
+
+              {/* On mobile, break line before the (possibly long) team name */}
+              <br className="only-mobile" />
+
+              <span className="meta-dot only-desktop" />
+              <span className="team-ellip">Team: {teamName || '—'}</span>
+            </p>
+          </div>
+          {/* Toast rail placeholder to avoid layout shift */}
+          <div className="toast-rail" style={{ position: 'static', height: 36 }} />
+        </div>
+
+        <div style={{ padding: 16 }}>
+          <h2>{statusMsg}</h2>
+          <p>
+            Team <strong>{teamName || '(unnamed team)'}</strong> cannot trade until approved by the
+            teacher.
+          </p>
+        </div>
+
+        {/* (Optional) show headlines on desktop for context */}
+        <div className="hide-on-mobile" style={{ border: '1px solid #ccc', padding: 12, margin: '12px', borderRadius: 8 }}>
+          {headlineLoading ? (
+            <span>Loading headlines…</span>
+          ) : headlinesList.length ? (
+            <ul>
+              {headlinesList.map((h, i) => (
+                <li key={i}>{h.text || h}</li>
+              ))}
+            </ul>
+          ) : (
+            <span>No headlines this round.</span>
+          )}
+        </div>
+      </div>
+    );
+  }
+
+  // From here on, team is APPROVED and portfolio should be available/seeded
+  if (!portfolio || commodities.length === 0) return <p>Loading…</p>;
 
   const { cash, positions, creditCap } = portfolio;
-  const round = game.currentRound;
 
-  // Credit usage (only shorts use credit)
+  // Credit usage (shorts only)
   const used = Object.entries(positions).reduce((sum, [cid, qty]) => {
     if (qty < 0) {
       const price = commodities.find((c) => c.id === cid)?.prices[round] || 0;
@@ -152,6 +246,7 @@ export default function GamePage() {
 
   // Trading
   const handleTrade = async (cid, action) => {
+    if (teamStatus !== 'approved') return alert('Trading is disabled until your team is approved.');
     if (game.state === 'review') return alert('Trading disabled during review');
     if (submitting) return;
 
@@ -170,7 +265,6 @@ export default function GamePage() {
       const uid = auth.currentUser.uid;
       const pfRef = ref(database, `games/${gameId}/portfolios/${uid}`);
       await runTransaction(pfRef, (curr) => {
-        // Use current DB values; if missing, seed from INITIAL_CAPITAL (first trade case only)
         const prevCash = typeof curr?.cash === 'number' ? curr.cash : INITIAL_CAPITAL;
         const prevCap =
           typeof curr?.creditCap === 'number'

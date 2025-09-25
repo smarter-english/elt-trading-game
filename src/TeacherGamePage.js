@@ -1,5 +1,6 @@
+// src/TeacherGamePage.js
 import React, { useEffect, useMemo, useState } from 'react';
-import { useParams, Link } from 'react-router-dom';
+import { useParams, useNavigate } from 'react-router-dom';
 import { database } from './firebase';
 import { ref, onValue, get, update, runTransaction, set } from 'firebase/database';
 import BrandBar from './BrandBar';
@@ -18,6 +19,7 @@ const normName = (s) =>
 
 export default function TeacherGamePage() {
   const { gameId } = useParams();
+  const navigate = useNavigate();
 
   const [game, setGame] = useState(null);
   const [headlines, setHeadlines] = useState([]);
@@ -315,13 +317,21 @@ export default function TeacherGamePage() {
           <div style={{ fontWeight: 700 }}>
             Game: {game?.name} &nbsp;•&nbsp; {monthLabel(currentRound)} &nbsp;•&nbsp; State: <em>{state}</em>
           </div>
-          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-            <Link className="btn" to="/teacher/dashboard">← Back to Dashboard</Link>
-            <button className="btn" onClick={handleToggleReview} disabled={advancing}>
-              {state === 'review' ? 'Back to Play' : 'Enter Review'}
+          <div style={{ display:'flex', gap:8, flexWrap:'wrap' }}>
+            <button className="btn btn--link" onClick={() => navigate('/teacher/dashboard')}>
+              ← Back to Dashboard
             </button>
-            <button className="btn primary" onClick={handleAdvance} disabled={advancing}>
-              {advancing ? 'Advancing…' : `Advance to ${monthLabel(currentRound + 1)}`}
+            {state !== 'review' ? (
+              <button className="btn btn--neutral" onClick={handleToggleReview} disabled={advancing}>
+                Enter Review
+              </button>
+            ) : (
+              <button className="btn btn--neutral" onClick={handleToggleReview} disabled={advancing}>
+                Back to Trading
+              </button>
+            )}
+            <button className="btn btn--primary" onClick={handleAdvance} disabled={advancing}>
+              {advancing ? 'Advancing…' : `Advance to Month ${currentRound + 2}`}
             </button>
           </div>
         </div>
@@ -360,15 +370,15 @@ export default function TeacherGamePage() {
       {/* Headlines vs Review UI */}
       {state !== 'review' ? (
         <div 
-        className="headlines--play" 
-        style={{ 
-          border: '1px solid #ccc', 
-          padding: 12, 
-          margin: '12px', 
-          borderRadius: 8, 
-          fontSize: 'clamp(20px, 3.2vw, 36px)',
-          lineHeight: 1.25,
-          fontWeight: 700
+          className="headlines--play"
+          style={{ 
+            border: '1px solid #ccc',
+            padding: 12,
+            margin: '12px',
+            borderRadius: 8,
+            fontSize: 'clamp(20px, 3.2vw, 36px)',
+            lineHeight: 1.25,
+            fontWeight: 700
           }}>
           {loadingHL ? (
             <span>Loading headlines…</span>

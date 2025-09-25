@@ -118,3 +118,77 @@
     font-size: clamp(22px, 6vw, 34px);
   }
 }
+
+/* --- Layout: keep sticky HUD below the BrandBar --- */
+:root { --brandbar-h: 64px; }      /* desktop BrandBar height */
+@media (max-width: 640px) {
+  :root { --brandbar-h: 72px; }    /* a little extra room on mobile */
+}
+
+.brandbar {
+  position: sticky;
+  top: 0;
+  z-index: 50;                     /* on top */
+  background: #fff;
+}
+
+/* Any sticky HUD bar (your stat HUD) */
+.hud-sticky {
+  position: sticky;
+  top: var(--brandbar-h);          /* sit just below brand bar */
+  z-index: 40;
+  background: #fff;
+}
+
+/* --- Buttons: shared styles across pages --- */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  gap: .4rem;
+  padding: 10px 14px;
+  border-radius: 10px;
+  border: 1px solid #d1d5db;
+  background: #f9fafb;
+  color: #111827;
+  font-weight: 600;
+  cursor: pointer;
+  transition: transform .02s ease, box-shadow .12s ease, background .12s ease;
+}
+.btn:hover { background: #f3f4f6; }
+.btn:active { transform: translateY(1px); }
+.btn:disabled { opacity: .55; cursor: not-allowed; }
+
+.btn--primary {
+  border-color: #2563eb;
+  background: #3b82f6;
+  color: #fff;
+}
+.btn--primary:hover { background: #2563eb; }
+
+.btn--neutral { background: #fff; }
+.btn--danger  { background: #c33; color: #fff; border-color: #b22; }
+.btn--link    { background: transparent; border: 0; color: #2563eb; text-decoration: underline; }
+
+/* --- Head/meta line: tidy wrapping --- */
+.meta-line { margin: 8px 0 12px; color:#374151; }
+.meta-dot::before { content: "•"; margin: 0 .5ch; color:#9ca3af; }
+
+.team-ellip {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: clamp(120px, 42vw, 320px);  /* trims long team names */
+  display: inline-block;
+  vertical-align: bottom;
+}
+
+/* show/hide helpers */
+.only-mobile  { display: none; }
+.only-desktop { display: inline; }
+@media (max-width: 640px) {
+  .only-mobile  { display: inline; }
+  .only-desktop { display: none; }
+}
+
+/* Headlines in play mode (you already added .headlines--play) */
+.headlines--play { font-size: clamp(18px, 2.6vw, 28px); line-height: 1.35; }

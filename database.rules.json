@@ -37,20 +37,24 @@
         "code": { ".validate": "newData.isString() && newData.val().length > 0 && newData.val().length <= 12" },
 
         "teams": {
+          ".read": "auth != null",
+          ".write": false,
+          ".indexOn": ["teamName"],
           "$uid": {
             ".read": "auth != null && (root.child('users').child(auth.uid).child('role').val() === 'admin' || root.child('games').child($gameId).child('createdBy').val() === auth.uid || auth.uid === $uid || root.child('games').child($gameId).child('teams').child(auth.uid).exists())",
             ".write": "auth != null && (auth.uid === $uid || root.child('users').child(auth.uid).child('role').val() === 'admin' || root.child('games').child($gameId).child('createdBy').val() === auth.uid)",
-            "teamName": { ".validate": "newData.isString() && newData.val().length <= 50" },
+            "teamName": { ".validate": "newData.isString() && newData.val().matches(/^[A-Za-z0-9 ._\\-]{1,20}$/)" },
             "name": { ".validate": "newData.isString() && newData.val().length <= 50" },
             "teamPassword": { ".validate": "newData.isString() && newData.val().length <= 100" },
-            "joinedAt": { ".validate": "newData.isNumber()" }
+            "joinedAt": { ".validate": "newData.isNumber()" },
+            "status": { ".validate": "newData.isString() && (newData.val() === 'pending' || newData.val() === 'approved' || newData.val() === 'rejected' || newData.val() === 'kicked')" }
           }
         },
 
         "portfolios": {
           "$uid": {
             ".read": "auth != null && (auth.uid === $uid || root.child('users').child(auth.uid).child('role').val() === 'admin' || root.child('games').child($gameId).child('createdBy').val() === auth.uid)",
-            ".write": "auth != null && (auth.uid === $uid || root.child('users').child(auth.uid).child('role').val() === 'admin' || root.child('games').child($gameId).child('createdBy').val() === auth.uid)",
+            ".write": "auth != null && ((auth.uid === $uid && root.child('games').child($gameId).child('teams').child($uid).child('status').val() === 'approved') || root.child('users').child(auth.uid).child('role').val() === 'admin' || root.child('games').child($gameId).child('createdBy').val() === auth.uid)",
             "cash": { ".validate": "newData.isNumber()" },
             "creditCap": { ".validate": "newData.isNumber()" },
             "positions": {
