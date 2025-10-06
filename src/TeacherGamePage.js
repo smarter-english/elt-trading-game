@@ -397,48 +397,53 @@ export default function TeacherGamePage() {
           {/* Reveal table */}
           <div style={{ padding: 12 }}>
             <h3>Headline review: {monthLabel(currentRound)}</h3>
-            <table className="trade-table">
-              <thead>
-                <tr>
-                  <th>#</th>
-                  <th>Headline</th>
-                  <th className="hide-on-mobile">Commodity</th>
-                  <th className="hide-on-mobile">Direction</th>
-                  <th>Reveal</th>
-                </tr>
-              </thead>
-              <tbody>
-                {headlines.map((h, idx) => {
-                  const isRevealed = !!revealed[idx];
-                  const effect = Array.isArray(h.effects) ? h.effects[0] : {};
-                  return (
-                    <tr key={idx}>
-                      <td>{idx + 1}</td>
-                      <td>{h.text}</td>
-                      <td className="hide-on-mobile">{isRevealed ? (effect.commodity || '—') : '—'}</td>
-                      <td className="hide-on-mobile">{isRevealed ? (effect.change || '—') : '—'}</td>
-                      <td>
-                        <button className="btn" onClick={() => toggleReveal(idx)} disabled={advancing}>
-                          {isRevealed ? 'Hide' : 'Reveal'}
-                        </button>
-                      </td>
+              <div className="review-big" style={{ fontSize: 'clamp(22px, 3.2vw, 32px)', lineHeight: 1.25 }}>
+                <table className="trade-table">
+                  <thead>
+                    <tr>
+                      <th>#</th>
+                      <th>Headline</th>
+                      <th className="hide-on-mobile">Commodity</th>
+                      <th className="hide-on-mobile">Direction</th>
+                      <th>Reveal</th>
                     </tr>
-                  );
-                })}
-              </tbody>
-            </table>
+                  </thead>
+                  <tbody>
+                    {headlines.map((h, idx) => {
+                      const isRevealed = !!revealed[idx];
+                      const effect = Array.isArray(h.effects) ? h.effects[0] : {};
+                      return (
+                        <tr key={idx}>
+                          <td>{idx + 1}</td>
+                          <td>{h.text}</td>
+                          <td className="hide-on-mobile">{isRevealed ? (effect.commodity || '—') : '—'}</td>
+                          <td className="hide-on-mobile">{isRevealed ? (effect.change || '—') : '—'}</td>
+                          <td>
+                            <button className="btn" onClick={() => toggleReveal(idx)} disabled={advancing}>
+                              {isRevealed ? 'Hide' : 'Reveal'}
+                            </button>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+            </div>
           </div>
 
           {/* Review positions table (with highlighting) */}
           <div style={{ border: '1px solid #999', padding: 12, margin: '12px' }}>
             <h4>Review Positions for {monthLabel(currentRound)}</h4>
-            <ReviewTable
-              gameId={gameId}
-              portfolios={portfolios}
-              teams={teams}
-              commodities={commodities}
-              highlightedEffects={revealedEffectsMap}
-            />
+
+            <div className="review-big" style={{ fontSize: 'clamp(22px, 3.2vw, 32px)', lineHeight: 1.25 }}>
+              <ReviewTable
+                gameId={gameId}
+                portfolios={portfolios}
+                teams={teams}
+                commodities={commodities}
+                highlightedEffects={revealedEffectsMap}
+              />
+            </div>
           </div>
 
           {/* Penalties editor — moved to bottom */}

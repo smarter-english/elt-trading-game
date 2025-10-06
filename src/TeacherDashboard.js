@@ -15,6 +15,7 @@ import {
   remove,
 } from 'firebase/database';
 import BrandBar from './BrandBar';
+import { QRCodeCanvas } from 'qrcode.react';
 
 function sixCharCode() {
   // Letters only; skip I and O to avoid confusion with 1/0
@@ -23,7 +24,6 @@ function sixCharCode() {
   for (let i = 0; i < 6; i++) s += LETTERS[Math.floor(Math.random() * LETTERS.length)];
   return s;
 }
-
 async function generateUniqueCode() {
   for (let i = 0; i < 5; i++) {
     const code = sixCharCode();
@@ -32,7 +32,6 @@ async function generateUniqueCode() {
   }
   return sixCharCode();
 }
-
 function monthLabel(idx) {
   const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
   const n = Number(idx) || 0;
@@ -48,6 +47,9 @@ export default function TeacherDashboard() {
   const [creating, setCreating] = useState(false);
   const [newName, setNewName] = useState('');
   const [msg, setMsg] = useState('');
+
+  // QR modal state
+  const [qrForGame, setQrForGame] = useState(null); // {id, code, name} | null
 
   // Profile
   useEffect(() => {
@@ -171,6 +173,57 @@ export default function TeacherDashboard() {
     }
   }, []);
 
+  // QR modal content
+  const QrModal = ({ game, onClose }) => {
+    if (!game) return null;
+    const base = window.location.origin;
+    const joinUrl = `${base}/lobby?code=${game.code || ''}`;
+
+    const copy = async () => {
+      try {
+        await navigator.clipboard.writeText(joinUrl);
+        alert('Join link copied!');
+      } catch {
+        alert(joinUrl);
+      }
+    };
+
+    return (
+      <div
+        role="dialog"
+        aria-modal="true"
+        onClick={onClose}
+        style={{
+          position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.45)',
+          display: 'grid', placeItems: 'center', zIndex: 1000
+        }}
+      >
+        <div
+          onClick={(e) => e.stopPropagation()}
+          style={{ background: '#fff', padding: 16, borderRadius: 12, width: 360, maxWidth: '92vw' }}
+        >
+          <h3 style={{ marginTop: 0, marginBottom: 8 }}>Join “{game.name}”</h3>
+          <p style={{ margin: 0, color: '#374151' }}>
+            Scan to open the Lobby with the code pre-filled:
+          </p>
+
+          <div style={{ display: 'grid', placeItems: 'center', margin: '12px 0' }}>
+            <QRCodeCanvas value={joinUrl} size={224} level="M" includeMargin />
+          </div>
+
+          <div style={{ fontSize: 12, color: '#6b7280', wordBreak: 'break-all', marginBottom: 10 }}>
+            {joinUrl}
+          </div>
+
+          <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
+            <button className="btn" onClick={copy}>Copy link</button>
+            <button className="btn btn--primary" onClick={onClose}>Close</button>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
   return (
     <div>
       <BrandBar showLogout />
@@ -208,7 +261,7 @@ export default function TeacherDashboard() {
           </p>
         </section>
 
-        {/* Games with team approvals */}
+        {/* Games with team approvals + QR */}
         <section style={{ marginTop: 20 }}>
           <h3>Your games</h3>
           {games.length === 0 ? (
@@ -224,9 +277,12 @@ export default function TeacherDashboard() {
                         Code: <code>{g.code}</code> &nbsp;•&nbsp; Month {g.currentRound + 1} ({monthLabel(g.currentRound)}) &nbsp;•&nbsp; State: {g.state}
                       </div>
                     </div>
-                    <div>
+                    <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
                       <button className="btn" onClick={() => navigate(`/teacher/game/${g.id}`)}>
                         Manage
+                      </button>
+                      <button className="btn btn--neutral" onClick={() => setQrForGame({ id: g.id, code: g.code, name: g.name })}>
+                        Show QR
                       </button>
                     </div>
                   </div>
@@ -277,7 +333,6 @@ export default function TeacherDashboard() {
                                       </button>
                                     </>
                                   ) : (
-                                    // Once approved: hide actions
                                     <span style={{ color: '#6b7280' }}>—</span>
                                   )}
                                 </td>
@@ -293,6 +348,9 @@ export default function TeacherDashboard() {
           )}
         </section>
       </div>
+
+      {/* QR modal */}
+      {qrForGame && <QrModal game={qrForGame} onClose={() => setQrForGame(null)} />}
     </div>
   );
 }

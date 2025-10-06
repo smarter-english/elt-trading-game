@@ -1,6 +1,6 @@
 // src/Lobby.js
-import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import React, { useEffect, useRef, useState } from 'react';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { auth, database } from './firebase';
 import { ref, get, set } from 'firebase/database';
 import {
@@ -29,11 +29,25 @@ function makeEmail(teamName, gameId) {
 
 export default function Lobby() {
   const navigate = useNavigate();
+  const location = useLocation();
+  const teamInputRef = useRef(null);
+
   const [codeInput, setCodeInput] = useState('');
   const [teamName, setTeamName] = useState('');
   const [teamPassword, setTeamPassword] = useState('');
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState('');
+
+  // Prefill ?code=ABCDEF and focus the Team Name box
+  useEffect(() => {
+    const params = new URLSearchParams(location.search);
+    const raw = (params.get('code') || '').toUpperCase();
+    const code = raw.replace(/[^A-Z]/g, '');
+    if (CODE_REGEX.test(code)) {
+      setCodeInput(code);
+      setTimeout(() => teamInputRef.current?.focus(), 0);
+    }
+  }, [location.search]);
 
   const joinByCode = async (e) => {
     e.preventDefault();
@@ -59,13 +73,11 @@ export default function Lobby() {
       const gameId = codeSnap.val();
 
       // 2) Ensure we're authenticated BEFORE reading teams
-      //    (rules typically require auth != null to read /games/{id}/teams)
       if (!auth.currentUser) {
         try {
           await signInAnonymously(auth);
         } catch (anonErr) {
-          // Most likely Anonymous sign-in not enabled
-          setMsg('Login setup error. Please ask your teacher to enable Anonymous sign-in.');
+          setMsg('Login setup error. Ask your teacher to enable Anonymous sign-in.');
           console.warn('Anonymous sign-in failed:', anonErr);
           return;
         }
@@ -167,6 +179,7 @@ export default function Lobby() {
             />
 
             <input
+              ref={teamInputRef}
               aria-label="Team name"
               placeholder="Team name (max 20 chars)"
               value={teamName}

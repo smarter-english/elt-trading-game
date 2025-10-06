@@ -190,5 +190,25 @@
   .only-desktop { display: none; }
 }
 
-/* Headlines in play mode (you already added .headlines--play) */
-.headlines--play { font-size: clamp(18px, 2.6vw, 28px); line-height: 1.35; }
+
+/* ===== Teacher review: BIG type for projector ===== */
+.review-big {
+  font-size: clamp(22px, 3.2vw, 32px);
+  line-height: 1.25;
+}
+.review-big th,
+.review-big td {
+  padding: 12px 14px;      /* room to breathe at large sizes */
+}
+
+/* keep tables readable when scaled up */
+.review-big .trade-table { width: 100%; }
+.review-big .trade-table th { font-weight: 700; }
+
+/* Force review-state tables to inherit the larger type */
+.review-big .trade-table th,
+.review-big .trade-table td {
+  font-size: inherit !important;
+  line-height: inherit !important;
+  padding: 12px 14px;
+}
