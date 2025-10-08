@@ -17,7 +17,7 @@ export default function GamePage() {
 
   // team info
   const [teamName, setTeamName] = useState('');
-  const [teamStatus, setTeamStatus] = useState(undefined); // 'pending' | 'approved' | 'kicked' | 'rejected' | undefined (not on a team)
+  const [teamStatus, setTeamStatus] = useState(undefined); // 'pending' | 'approved' | 'kicked' | 'rejected' | undefined
 
   // portfolio & market
   const [portfolio, setPf] = useState(null);
@@ -47,7 +47,7 @@ export default function GamePage() {
     return onValue(teamRef, (snap) => {
       const t = snap.val();
       setTeamName((t && (t.name || t.teamName)) || '');
-      setTeamStatus(t?.status); // may be undefined if not joined
+      setTeamStatus(t?.status);
     });
   }, [gameId]);
 
@@ -55,14 +55,13 @@ export default function GamePage() {
   useEffect(() => {
     const uid = auth.currentUser?.uid;
     if (!uid || !gameId) return;
-    if (teamStatus !== 'approved') return; // don’t write while pending/kicked/rejected
+    if (teamStatus !== 'approved') return;
 
     const pfRef = ref(database, `games/${gameId}/portfolios/${uid}`);
     let first = true;
     const off = onValue(pfRef, (snap) => {
       if (first && !snap.exists()) {
         runTransaction(pfRef, (cur) => {
-          // Only set defaults if still missing
           return cur || {
             cash: INITIAL_CAPITAL,
             positions: {},
@@ -142,19 +141,31 @@ export default function GamePage() {
       <div>
         <BrandBar showLogout />
         <div className="hud-sticky">
-          <div style={{ fontWeight: 600 }}>
-            Game: {game.name} &nbsp;•&nbsp; Month {round + 1}
-          </div>
-        </div>
-        <div style={{ padding: 16 }}>
-          <h2>Not joined</h2>
-          <p>
-            You’re not part of this game yet. Go back to the lobby and join with the teacher’s
-            code.
+          <p className="meta-line">
+            <span>Game: {game.name}</span>
+            <span className="meta-dot only-desktop" />
+            <span>Month {round + 1}</span>
           </p>
-          <button className="btn" onClick={() => navigate('/lobby')}>
-            Back to Lobby
-          </button>
+          <div className="toast-rail" />
+        </div>
+
+        <h2>Not joined</h2>
+        <p>
+          You’re not part of this game yet. Go back to the lobby and join with the teacher’s code.
+        </p>
+        <button className="btn" onClick={() => navigate('/lobby')}>
+          Back to Lobby
+        </button>
+
+        {/* Context headlines on desktop */}
+        <div className="hide-on-mobile">
+          {headlineLoading ? (
+            <span>Loading headlines…</span>
+          ) : headlinesList.length ? (
+            <ul>{headlinesList.map((h, i) => <li key={i}>{h.text || h}</li>)}</ul>
+          ) : (
+            <span>No headlines this round.</span>
+          )}
         </div>
       </div>
     );
@@ -173,41 +184,29 @@ export default function GamePage() {
       <div>
         <BrandBar showLogout />
         <div className="hud-sticky">
-          <div style={{ fontWeight: 600 }}>
-            <p className="meta-line">
-              <span>Game: {game?.name || '—'}</span>
-              <span className="meta-dot only-desktop" />
-              <span>Month {Number(game?.currentRound ?? 0) + 1}</span>
-
-              {/* On mobile, break line before the (possibly long) team name */}
-              <br className="only-mobile" />
-
-              <span className="meta-dot only-desktop" />
-              <span className="team-ellip">Team: {teamName || '—'}</span>
-            </p>
-          </div>
-          {/* Toast rail placeholder to avoid layout shift */}
-          <div className="toast-rail" style={{ position: 'static', height: 36 }} />
-        </div>
-
-        <div style={{ padding: 16 }}>
-          <h2>{statusMsg}</h2>
-          <p>
-            Team <strong>{teamName || '(unnamed team)'}</strong> cannot trade until approved by the
-            teacher.
+          <p className="meta-line">
+            <span>Game: {game?.name || '—'}</span>
+            <span className="meta-dot only-desktop" />
+            <span>Month {Number(game?.currentRound ?? 0) + 1}</span>
+            <br className="only-mobile" />
+            <span className="meta-dot only-desktop" />
+            <span className="team-ellip">Team: {teamName || '—'}</span>
           </p>
+          <div className="toast-rail" />
         </div>
 
-        {/* (Optional) show headlines on desktop for context */}
-        <div className="hide-on-mobile" style={{ border: '1px solid #ccc', padding: 12, margin: '12px', borderRadius: 8 }}>
+        <h2>{statusMsg}</h2>
+        <p>
+          Team <strong>{teamName || '(unnamed team)'}</strong> cannot trade until approved by the
+          teacher.
+        </p>
+
+        {/* Headlines on desktop */}
+        <div className="hide-on-mobile">
           {headlineLoading ? (
             <span>Loading headlines…</span>
           ) : headlinesList.length ? (
-            <ul>
-              {headlinesList.map((h, i) => (
-                <li key={i}>{h.text || h}</li>
-              ))}
-            </ul>
+            <ul>{headlinesList.map((h, i) => <li key={i}>{h.text || h}</li>)}</ul>
           ) : (
             <span>No headlines this round.</span>
           )}
@@ -313,9 +312,14 @@ export default function GamePage() {
 
       {/* Sticky HUD */}
       <div className="hud-sticky">
-        <div style={{ fontWeight: 600 }}>
-          Game: {game.name} &nbsp;•&nbsp; Team: {teamName || '(team not named)'} &nbsp;•&nbsp; Month {round + 1}
-        </div>
+        <p className="meta-line">
+          <span>Game: {game.name}</span>
+          <span className="meta-dot only-desktop" />
+          <span>Month {round + 1}</span>
+          <br className="only-mobile" />
+          <span className="meta-dot only-desktop" />
+          <span className="team-ellip">Team: {teamName || '(team not named)'}</span>
+        </p>
 
         <div className="statgrid hud-stats">
           <MoneyOdometer label="Cash" value={cash} slotCh={16} />
@@ -325,32 +329,26 @@ export default function GamePage() {
         </div>
 
         {/* Toast slot (no layout shift) */}
-        <div className="toast-rail" style={{ position: 'static', height: 36, padding: 0, border: 'none' }}>
-          {toast ? (
+        <div className="toast-rail">
+          {toast && (
             <div className={`toast show ${toastType === 'error' ? 'error' : ''}`}>{toast}</div>
-          ) : (
-            <div className="toast" style={{ visibility: 'hidden' }}>.</div>
           )}
         </div>
       </div>
 
       {/* Headlines – desktop only */}
-      <div className="hide-on-mobile" style={{ border: '1px solid #ccc', padding: 12, margin: '12px', borderRadius: 8 }}>
+      <div className="hide-on-mobile">
         {headlineLoading ? (
           <span>Loading headlines…</span>
         ) : headlinesList.length ? (
-          <ul>
-            {headlinesList.map((h, i) => (
-              <li key={i}>{h.text || h}</li>
-            ))}
-          </ul>
+          <ul>{headlinesList.map((h, i) => <li key={i}>{h.text || h}</li>)}</ul>
         ) : (
           <span>No headlines this round.</span>
         )}
       </div>
 
       {/* ===== Desktop table ===== */}
-      <div className="desktop-only" style={{ padding: '0 12px 24px' }}>
+      <div className="desktop-only">
         <table className="trade-table">
           <thead>
             <tr>
@@ -400,7 +398,6 @@ export default function GamePage() {
                       className="btn"
                       onClick={() => handleTrade(c.id, 'short')}
                       disabled={submitting || game.state === 'review'}
-                      style={{ marginLeft: 8 }}
                     >
                       Short
                     </button>
@@ -471,7 +468,7 @@ export default function GamePage() {
 
                 <div className="actions">
                   <button
-                    className="btn primary"
+                    className="btn btn--primary"
                     onClick={() => handleTrade(c.id, 'buy')}
                     disabled={submitting || game.state === 'review'}
                   >

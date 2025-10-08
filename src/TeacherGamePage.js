@@ -21,10 +21,12 @@ export default function TeacherGamePage() {
   const { gameId } = useParams();
   const navigate = useNavigate();
 
-  const [game, setGame] = useState(null);
+  // Narrow game meta (prevents re-fetching headlines on trades)
+  const [meta, setMeta] = useState({ name: '', state: 'play', currentRound: 0 });
+
   const [headlines, setHeadlines] = useState([]);
   const [loadingHL, setLoadingHL] = useState(true);
-  const [revealed, setRevealed] = useState({}); // {index: true|false}
+  const [revealed, setRevealed] = useState({});
 
   const [commodities, setCommodities] = useState([]);
   const [teams, setTeams] = useState({});
@@ -41,64 +43,42 @@ export default function TeacherGamePage() {
   const [standings, setStandings] = useState([]);
   const [standingsRound, setStandingsRound] = useState(null);
 
-  // Game meta
+  /* ============== meta listeners ============== */
   useEffect(() => {
     if (!gameId) return;
-    const path = `games/${gameId}`;
-    const gRef = ref(database, path);
-    const unsub = onValue(
-      gRef,
-      (snap) => setGame(snap.val()),
-      (err) => {
-        console.groupCollapsed('Game read error');
-        console.log('path:', path);
-        console.warn('Firebase error:', err?.code, err?.message);
-        console.groupEnd();
-      }
+
+    const offName = onValue(
+      ref(database, `games/${gameId}/name`),
+      s => setMeta(m => ({ ...m, name: s.val() || '' }))
     );
+    const offState = onValue(
+      ref(database, `games/${gameId}/state`),
+      s => setMeta(m => ({ ...m, state: s.val() || 'play' }))
+    );
+    const offRound = onValue(
+      ref(database, `games/${gameId}/currentRound`),
+      s => setMeta(m => ({ ...m, currentRound: s.val() ?? 0 }))
+    );
+
+    return () => { offName(); offState(); offRound(); };
+  }, [gameId]);
+
+  /* ============== teams & portfolios ============== */
+  useEffect(() => {
+    if (!gameId) return;
+    const tRef = ref(database, `games/${gameId}/teams`);
+    const unsub = onValue(tRef, (snap) => setTeams(snap.val() || {}), () => setTeams({}));
     return unsub;
   }, [gameId]);
 
-  // Teams
   useEffect(() => {
     if (!gameId) return;
-    const path = `games/${gameId}/teams`;
-    const tRef = ref(database, path);
-    const unsub = onValue(
-      tRef,
-      (snap) => setTeams(snap.val() || {}),
-      (err) => {
-        console.groupCollapsed('Teams read error');
-        console.log('path:', path);
-        console.warn('Firebase error:', err?.code, err?.message);
-        console.groupEnd();
-      }
-    );
+    const pRef = ref(database, `games/${gameId}/portfolios`);
+    const unsub = onValue(pRef, (snap) => setPortfolios(snap.val() || {}), () => setPortfolios({}));
     return unsub;
   }, [gameId]);
 
-  // Portfolios (live positions)
-  useEffect(() => {
-    if (!gameId) return;
-    const path = `games/${gameId}/portfolios`;
-    const pRef = ref(database, path);
-    const unsub = onValue(
-      pRef,
-      (snap) => {
-        const val = snap.val() || {};
-        setPortfolios(val);
-      },
-      (err) => {
-        console.groupCollapsed('Portfolios read error');
-        console.log('path:', path);
-        console.warn('Firebase error:', err?.code, err?.message);
-        console.groupEnd();
-      }
-    );
-    return unsub;
-  }, [gameId]);
-
-  // One-time commodities
+  /* ============== commodities (one-time) ============== */
   useEffect(() => {
     let alive = true;
     (async () => {
@@ -112,14 +92,13 @@ export default function TeacherGamePage() {
     return () => { alive = false; };
   }, []);
 
-  // Headlines for current round
+  /* ============== headlines by month (only when month changes) ============== */
   useEffect(() => {
-    if (!game) return;
     setLoadingHL(true);
     setRevealed({});
     let alive = true;
     (async () => {
-      const snap = await get(ref(database, `constants/headlines/${game.currentRound}`));
+      const snap = await get(ref(database, `constants/headlines/${meta.currentRound}`));
       const data = snap.val();
       const list = Array.isArray(data) ? data : data ? Object.values(data) : [];
       if (alive) {
@@ -128,45 +107,43 @@ export default function TeacherGamePage() {
       }
     })();
     return () => { alive = false; };
-  }, [game?.currentRound, game, gameId]);
+  }, [meta.currentRound]);
 
-  // Penalties (current round)
+  /* ============== penalties (by month) ============== */
   useEffect(() => {
-    if (!game) return;
-    const path = `games/${gameId}/penalties/${game.currentRound}`;
-    const pRef = ref(database, path);
+    if (!gameId) return;
+    const pRef = ref(database, `games/${gameId}/penalties/${meta.currentRound}`);
     return onValue(pRef, (snap) => {
       const obj = snap.val() || {};
       setPenalties(obj);
       const f = Math.max(0, Math.floor(Number(obj?.fine ?? DEFAULT_FINE)));
       setFine(f);
     });
-  }, [gameId, game?.currentRound, game]);
+  }, [gameId, meta.currentRound]);
 
-  // Effects map used by ReviewTable to highlight good/poor choices
+  /* ============== helpers ============== */
+  const { currentRound, state } = meta;
+  const monthLabel = (i) => `Month ${i + 1}`;
+
   const revealedEffectsMap = useMemo(() => {
     const map = {};
     headlines.forEach((h, idx) => {
       if (!revealed[idx]) return;
       const eff = Array.isArray(h?.effects) ? h.effects[0] : null;
       if (eff?.commodity && eff?.change) {
-        map[normName(eff.commodity)] = String(eff.change); // 'up' | 'down'
+        map[normName(eff.commodity)] = String(eff.change);
       }
     });
     return map;
   }, [headlines, revealed]);
 
-  if (!game) return <p>Loading game…</p>;
-  const { currentRound, state } = game;
-  const monthLabel = (i) => `Month ${i + 1}`;
-
-  // ===== actions =====
+  /* ============== actions ============== */
   const openStandings = async () => {
-    const snap = await get(ref(database, `games/${gameId}/standings/${game.currentRound}`));
+    const snap = await get(ref(database, `games/${gameId}/standings/${meta.currentRound}`));
     const saved = snap.val();
     if (saved?.list && Array.isArray(saved.list)) {
       setStandings(saved.list);
-      setStandingsRound(saved.round ?? game.currentRound);
+      setStandingsRound(saved.round ?? meta.currentRound);
       setShowStandings(true);
     } else {
       setStatusText('No saved standings for this round yet.');
@@ -175,7 +152,7 @@ export default function TeacherGamePage() {
   };
 
   const savePenalty = async (uid, value) => {
-    const n = Math.max(0, Math.min(50, Math.floor(Number(value) || 0)));
+    const n = Math.max(0, Math.min(200, Math.floor(Number(value) || 0)));
     await set(ref(database, `games/${gameId}/penalties/${currentRound}/${uid}`), { count: n });
   };
 
@@ -201,14 +178,12 @@ export default function TeacherGamePage() {
     setStatusPersist(false);
 
     try {
-      // Flip month & set play
       await update(ref(database, `games/${gameId}`), {
         currentRound: nextRound,
         state: 'play',
         lastAdvanceAt: Date.now()
       });
 
-      // Fetch commodities for next prices
       const commSnap = await get(ref(database, 'constants/commodities'));
       const raw = commSnap.val() || {};
       const comms = Array.isArray(raw)
@@ -219,7 +194,6 @@ export default function TeacherGamePage() {
         return Number(c?.prices?.[r] ?? 0);
       };
 
-      // Snapshot data
       const [pfSnap, teamsSnap, penSnap] = await Promise.all([
         get(ref(database, `games/${gameId}/portfolios`)),
         get(ref(database, `games/${gameId}/teams`)),
@@ -230,7 +204,6 @@ export default function TeacherGamePage() {
       const penaltiesNow = penSnap.val() || {};
       const fineNow = Math.max(0, Math.floor(Number(penaltiesNow?.fine ?? fine ?? DEFAULT_FINE)));
 
-      // Liquidate & apply penalties
       for (const [uid] of Object.entries(portfoliosNow)) {
         await runTransaction(ref(database, `games/${gameId}/portfolios/${uid}`), (curr) => {
           if (!curr) return curr;
@@ -240,7 +213,7 @@ export default function TeacherGamePage() {
             const q = Number(qty) || 0;
             if (!q) return;
             const p = priceAt(cid, nextRound);
-            newCash += q * p; // long sells add, short (negative q) buys back subtracts
+            newCash += q * p;
           });
           const count = Math.max(0, Math.floor(Number(penaltiesNow?.[uid]?.count) || 0));
           newCash -= count * fineNow;
@@ -252,7 +225,6 @@ export default function TeacherGamePage() {
         });
       }
 
-      // Standings snapshot
       const pfSnap2 = await get(ref(database, `games/${gameId}/portfolios`));
       const portfoliosAfter = pfSnap2.val() || {};
       const list = Object.keys(teamsNow).map((uid) => {
@@ -308,78 +280,51 @@ export default function TeacherGamePage() {
 
   const toggleReveal = (idx) => setRevealed((r) => ({ ...r, [idx]: !r[idx] }));
 
+  /* ============== render ============== */
   return (
     <div>
       <BrandBar showLogout />
 
-      <div className="hud-sticky" style={{ padding: 12 }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
-          <div style={{ fontWeight: 700 }}>
-            Game: {game?.name} &nbsp;•&nbsp; {monthLabel(currentRound)} &nbsp;•&nbsp; State: <em>{state}</em>
+      <div className="hud-sticky">
+        <div className="teacher-topbar">
+          <div className="teacher-topbar__title">
+            Game: {meta.name} • {monthLabel(currentRound)} • State: <em>{state}</em>
           </div>
-          <div style={{ display:'flex', gap:8, flexWrap:'wrap' }}>
+          <div className="teacher-topbar__actions">
             <button className="btn btn--link" onClick={() => navigate('/teacher/dashboard')}>
               ← Back to Dashboard
             </button>
-            {state !== 'review' ? (
-              <button className="btn btn--neutral" onClick={handleToggleReview} disabled={advancing}>
-                Enter Review
-              </button>
-            ) : (
-              <button className="btn btn--neutral" onClick={handleToggleReview} disabled={advancing}>
-                Back to Trading
-              </button>
-            )}
+            <button className="btn" onClick={openStandings} disabled={advancing}>
+              Show Standings
+            </button>
+            <button className="btn btn--neutral" onClick={handleToggleReview} disabled={advancing}>
+              {state !== 'review' ? 'Enter Review' : 'Back to Trading'}
+            </button>
             <button className="btn btn--primary" onClick={handleAdvance} disabled={advancing}>
               {advancing ? 'Advancing…' : `Advance to Month ${currentRound + 2}`}
             </button>
           </div>
         </div>
 
-        {/* Status banner (sticky rail) */}
-        <div className="toast-rail" style={{ position: 'static', minHeight: 44, marginTop: 8 }}>
+        <div className="toast-rail toast-rail--spaced">
           {statusText ? (
-            <div
-              className="toast show"
-              style={{
-                whiteSpace: 'pre-line',
-                background: statusText.startsWith('✅') ? '#eef9f0' : statusText.startsWith('❌') ? '#fff2f2' : '#eef6ff',
-                border: `1px solid ${
-                  statusText.startsWith('✅') ? '#bfe4c7' : statusText.startsWith('❌') ? '#f3c2c2' : '#cfe3ff'
-                }`,
-                color: '#222'
-              }}
-              aria-live="polite"
-            >
+            <div className="toast show">
               {statusText}{' '}
-              <button className="btn" onClick={openStandings} style={{ marginLeft: 8 }}>
-                Show standings
-              </button>
+              <button className="btn" onClick={openStandings}>Show standings</button>
               {statusPersist && (
-                <button className="btn" onClick={() => { setStatusText(''); setStatusPersist(false); }} style={{ marginLeft: 8 }}>
+                <button className="btn" onClick={() => { setStatusText(''); setStatusPersist(false); }}>
                   Dismiss
                 </button>
               )}
             </div>
           ) : (
-            <div className="toast" style={{ visibility: 'hidden' }}>.</div>
+            <div className="toast toast--hidden">.</div>
           )}
         </div>
       </div>
 
-      {/* Headlines vs Review UI */}
       {state !== 'review' ? (
-        <div 
-          className="headlines--play"
-          style={{ 
-            border: '1px solid #ccc',
-            padding: 12,
-            margin: '12px',
-            borderRadius: 8,
-            fontSize: 'clamp(20px, 3.2vw, 36px)',
-            lineHeight: 1.25,
-            fontWeight: 700
-          }}>
+        <div className="panel headlines--play">
           {loadingHL ? (
             <span>Loading headlines…</span>
           ) : headlines.length ? (
@@ -394,48 +339,74 @@ export default function TeacherGamePage() {
         </div>
       ) : (
         <>
-          {/* Reveal table */}
-          <div style={{ padding: 12 }}>
+          {/* Reveal table with extra columns: Impact (S/D) + Δ next month */}
+          <div className="panel">
             <h3>Headline review: {monthLabel(currentRound)}</h3>
-              <div className="review-big" style={{ fontSize: 'clamp(22px, 3.2vw, 32px)', lineHeight: 1.25 }}>
-                <table className="trade-table">
-                  <thead>
-                    <tr>
-                      <th>#</th>
-                      <th>Headline</th>
-                      <th className="hide-on-mobile">Commodity</th>
-                      <th className="hide-on-mobile">Direction</th>
-                      <th>Reveal</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {headlines.map((h, idx) => {
-                      const isRevealed = !!revealed[idx];
-                      const effect = Array.isArray(h.effects) ? h.effects[0] : {};
-                      return (
-                        <tr key={idx}>
-                          <td>{idx + 1}</td>
-                          <td>{h.text}</td>
-                          <td className="hide-on-mobile">{isRevealed ? (effect.commodity || '—') : '—'}</td>
-                          <td className="hide-on-mobile">{isRevealed ? (effect.change || '—') : '—'}</td>
-                          <td>
-                            <button className="btn" onClick={() => toggleReveal(idx)} disabled={advancing}>
-                              {isRevealed ? 'Hide' : 'Reveal'}
-                            </button>
-                          </td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
+            <div className="review-big">
+              <table className="trade-table">
+                <thead>
+                  <tr>
+                    <th>#</th>
+                    <th>Headline</th>
+                    <th className="hide-on-mobile">Commodity</th>
+                    <th className="hide-on-mobile">Impact (S/D)</th>
+                    <th>Δ next month</th>
+                    <th>Reveal</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {headlines.map((h, idx) => {
+                    const isRevealed = !!revealed[idx];
+                    const eff = Array.isArray(h.effects) ? h.effects[0] : null;
+
+                    // commodity name (may be missing)
+                    const commName = eff?.commodity || '';
+                    const comm = commodities.find(
+                      c => (c.name || '').toLowerCase() === commName.toLowerCase()
+                    );
+                    // prices for current & next month
+                    const pNow  = Number(comm?.prices?.[currentRound] ?? NaN);
+                    const pNext = Number(comm?.prices?.[currentRound + 1] ?? NaN);
+                    const pct = Number.isFinite(pNow) && Number.isFinite(pNext) && pNow > 0
+                      ? ((pNext - pNow) / pNow) * 100
+                      : null;
+
+                    // impact label (supply/demand ↑/↓), only if revealed
+                    const impactKey = eff?.impact || null; // 'demand_up' | 'demand_down' | 'supply_up' | 'supply_down'
+                    const impactLabel = !isRevealed || !impactKey
+                      ? '—'
+                      : impactKey.startsWith('demand')
+                        ? `Demand ${impactKey.endsWith('up') ? '↑' : '↓'}`
+                        : `Supply ${impactKey.endsWith('up') ? '↑' : '↓'}`;
+
+                    // delta label (only when revealed)
+                    const deltaLabel = isRevealed && pct != null
+                      ? `${pct >= 0 ? '+' : ''}${pct.toFixed(0)}%`
+                      : '—';
+
+                    return (
+                      <tr key={idx}>
+                        <td>{idx + 1}</td>
+                        <td>{h.text}</td>
+                        <td className="hide-on-mobile">{isRevealed ? (commName || '—') : '—'}</td>
+                        <td className="hide-on-mobile">{impactLabel}</td>
+                        <td>{deltaLabel}</td>
+                        <td>
+                          <button className="btn" onClick={() => toggleReveal(idx)} disabled={advancing}>
+                            {isRevealed ? 'Hide' : 'Reveal'}
+                          </button>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
             </div>
           </div>
 
-          {/* Review positions table (with highlighting) */}
-          <div style={{ border: '1px solid #999', padding: 12, margin: '12px' }}>
+          <div className="panel">
             <h4>Review Positions for {monthLabel(currentRound)}</h4>
-
-            <div className="review-big" style={{ fontSize: 'clamp(22px, 3.2vw, 32px)', lineHeight: 1.25 }}>
+            <div className="review-big">
               <ReviewTable
                 gameId={gameId}
                 portfolios={portfolios}
@@ -446,34 +417,29 @@ export default function TeacherGamePage() {
             </div>
           </div>
 
-          {/* Penalties editor — moved to bottom */}
-          <div style={{ border: '1px solid #bbb', padding: 12, borderRadius: 8, margin: '12px' }}>
-            <div style={{ display: 'flex', gap: 12, alignItems: 'center', marginBottom: 8, flexWrap: 'wrap' }}>
+          <div className="panel review-big">
+            <div className="penalties-bar">
               <label htmlFor="fine-input"><strong>Penalty fine for {monthLabel(currentRound)} ($)</strong></label>
               <input
                 id="fine-input"
                 type="number"
                 min="0"
                 step="1"
-                style={{ width: 120 }}
+                className="penalties-bar__fine"
                 value={fine}
                 onChange={(e) => setFine(Math.max(0, Math.floor(Number(e.target.value) || 0)))}
                 onBlur={() => saveFine(fine)}
                 disabled={savingFine || advancing}
               />
-              {savingFine && <span style={{ color: '#666' }}>Saving…</span>}
+              {savingFine && <span className="penalties-bar__saving">Saving…</span>}
             </div>
 
-            <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+            <table className="trade-table">
               <thead>
                 <tr>
-                  <th style={{ textAlign: 'left', padding: 8, borderBottom: '1px solid #ddd' }}>Team</th>
-                  <th style={{ textAlign: 'center', padding: 8, borderBottom: '1px solid #ddd' }}>
-                    Penalties ({monthLabel(currentRound)})
-                  </th>
-                  <th style={{ textAlign: 'right', padding: 8, borderBottom: '1px solid #ddd' }}>
-                    Fine next month
-                  </th>
+                  <th>Team</th>
+                  <th>Penalties ({monthLabel(currentRound)})</th>
+                  <th>Fine next month</th>
                 </tr>
               </thead>
               <tbody>
@@ -482,26 +448,45 @@ export default function TeacherGamePage() {
                   const count = Math.max(0, Math.floor(Number(penalties?.[uid]?.count) || 0));
                   return (
                     <tr key={uid}>
-                      <td style={{ padding: 8, borderBottom: '1px solid #f0f0f0' }}>{name}</td>
-                      <td style={{ padding: 8, borderBottom: '1px solid #f0f0f0', textAlign: 'center' }}>
-                        <input
-                          type="number"
-                          min="0"
-                          style={{ width: 80 }}
-                          value={count}
-                          onChange={(e) => savePenalty(uid, e.target.value)}
-                          disabled={advancing}
-                        />
+                      <td>{name}</td>
+                      <td>
+                        <div className="penalties-stepper penalties-stepper--compact">
+                          <button
+                            type="button"
+                            className="stepperBtn"
+                            onClick={() => savePenalty(uid, Math.max(count - 1, 0))}
+                            disabled={advancing || count <= 0}
+                            aria-label={`Decrease penalties for ${name}`}
+                          >
+                            −
+                          </button>
+                          <input
+                            type="number"
+                            min="0"
+                            className="penalties-count__input"
+                            value={count}
+                            onChange={(e) => savePenalty(uid, e.target.value)}
+                            disabled={advancing}
+                            aria-label={`Penalties for ${name}`}
+                          />
+                          <button
+                            type="button"
+                            className="stepperBtn"
+                            onClick={() => savePenalty(uid, count + 1)}
+                            disabled={advancing}
+                            aria-label={`Increase penalties for ${name}`}
+                          >
+                            +
+                          </button>
+                        </div>
                       </td>
-                      <td style={{ padding: 8, borderBottom: '1px solid #f0f0f0', textAlign: 'right' }}>
-                        ${(count * fine).toFixed(2)}
-                      </td>
+                      <td>${(count * fine).toFixed(2)}</td>
                     </tr>
                   );
                 })}
                 {Object.keys(teams).length === 0 && (
                   <tr>
-                    <td colSpan="3" style={{ padding: 12, textAlign: 'center', color: '#666' }}>No teams yet.</td>
+                    <td colSpan="3">No teams yet.</td>
                   </tr>
                 )}
               </tbody>
@@ -510,44 +495,32 @@ export default function TeacherGamePage() {
         </>
       )}
 
-      {/* Standings modal */}
       {showStandings && (
-        <div
-          role="dialog"
-          aria-modal="true"
-          onKeyDown={(e) => e.key === 'Escape' && setShowStandings(false)}
-          style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.4)', display: 'grid', placeItems: 'center', zIndex: 1000 }}
-          onClick={() => setShowStandings(false)}
-        >
-          <div
-            style={{ background: '#fff', padding: 16, borderRadius: 10, minWidth: 360, maxWidth: 520 }}
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' }}>
-              <h3 style={{ margin: 0 }}>Standings {standingsRound != null ? `(${monthLabel(standingsRound)})` : ''}</h3>
-              <button onClick={() => setShowStandings(false)} aria-label="Close standings">Close</button>
+        <div className="modal-backdrop" onClick={() => setShowStandings(false)} role="dialog" aria-modal="true">
+          <div className="modal-card review-big modal-card--wide" onClick={(e) => e.stopPropagation()}>
+            <div className="modal-card__header">
+              <h3>Standings {standingsRound != null ? `(${monthLabel(standingsRound)})` : ''}</h3>
+              <button className="btn btn--link" onClick={() => setShowStandings(false)} aria-label="Close standings">Close</button>
             </div>
-            <table style={{ width: '100%', borderCollapse: 'collapse', marginTop: 12 }}>
+            <table className="trade-table modal-card__table">
               <thead>
                 <tr>
-                  <th style={{ textAlign: 'left', padding: 8, borderBottom: '1px solid #ddd' }}>#</th>
-                  <th style={{ textAlign: 'left', padding: 8, borderBottom: '1px solid #ddd' }}>Team</th>
-                  <th style={{ textAlign: 'right', padding: 8, borderBottom: '1px solid #ddd' }}>Cash</th>
+                  <th>#</th>
+                  <th>Team</th>
+                  <th>Cash</th>
                 </tr>
               </thead>
               <tbody>
                 {standings.map((row, i) => (
                   <tr key={row.uid}>
-                    <td style={{ padding: 8, borderBottom: '1px solid #f0f0f0' }}>{i + 1}</td>
-                    <td style={{ padding: 8, borderBottom: '1px solid #f0f0f0' }}>{row.teamName}</td>
-                    <td style={{ padding: 8, borderBottom: '1px solid #f0f0f0', textAlign: 'right' }}>
-                      ${Number(row.cash || 0).toFixed(2)}
-                    </td>
+                    <td>{i + 1}</td>
+                    <td>{row.teamName}</td>
+                    <td>${Number(row.cash || 0).toFixed(2)}</td>
                   </tr>
                 ))}
                 {standings.length === 0 && (
                   <tr>
-                    <td colSpan="3" style={{ padding: 12, textAlign: 'center', color: '#666' }}>No teams yet.</td>
+                    <td colSpan="3">No teams yet.</td>
                   </tr>
                 )}
               </tbody>

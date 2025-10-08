@@ -1,4 +1,3 @@
-// src/TeacherApply.js
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { auth, database } from './firebase';
@@ -22,7 +21,6 @@ export default function TeacherApply() {
       const cred = await createUserWithEmailAndPassword(auth, email.trim(), password);
       const { uid } = cred.user;
 
-      // Only write to users/{uid}; no teacherApplications write.
       await set(ref(database, `users/${uid}`), {
         firstName,
         lastName,
@@ -42,69 +40,38 @@ export default function TeacherApply() {
   };
 
   return (
-    <div
-      style={{
-        maxWidth: 420,
-        margin: '48px auto',
-        padding: 24,
-        border: '1px solid #ddd',
-        borderRadius: 8,
-      }}
-    >
+    <div className="page-narrow panel">
       <h2>Apply for a Teacher Account</h2>
-      <form onSubmit={handleSubmit}>
+      <form className="form-vertical" onSubmit={handleSubmit}>
         <label>
-          First name
-          <br />
-          <input
-            value={firstName}
-            onChange={(e) => setFirst(e.target.value)}
-            required
-            style={{ width: '100%' }}
-          />
+          <span>First name</span>
+          <input value={firstName} onChange={(e) => setFirst(e.target.value)} required />
         </label>
-        <br />
+
         <label>
-          Last name
-          <br />
-          <input
-            value={lastName}
-            onChange={(e) => setLast(e.target.value)}
-            required
-            style={{ width: '100%' }}
-          />
+          <span>Last name</span>
+          <input value={lastName} onChange={(e) => setLast(e.target.value)} required />
         </label>
-        <br />
+
         <label>
-          Email
-          <br />
-          <input
-            type="email"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            required
-            style={{ width: '100%' }}
-          />
+          <span>Email</span>
+          <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} required />
         </label>
-        <br />
+
         <label>
-          Password
-          <br />
-          <input
-            type="password"
-            value={password}
-            onChange={(e) => setPass(e.target.value)}
-            required
-            style={{ width: '100%' }}
-          />
+          <span>Password</span>
+          <input type="password" value={password} onChange={(e) => setPass(e.target.value)} required />
         </label>
-        <button type="submit" disabled={submitting} style={{ marginTop: 12, width: '100%' }}>
+
+        <button className="btn btn--primary" type="submit" disabled={submitting}>
           {submitting ? 'Submitting…' : 'Submit'}
         </button>
       </form>
-      {msg && <div style={{ marginTop: 12 }}>{msg}</div>}
-      <div style={{ marginTop: 12 }}>
-        <button onClick={() => navigate('/teacher/login')}>Back to Teacher Login</button>
+
+      {msg && <div className="notice">{msg}</div>}
+
+      <div className="actions-row">
+        <button className="btn" onClick={() => navigate('/teacher/login')}>Back to Teacher Login</button>
       </div>
     </div>
   );

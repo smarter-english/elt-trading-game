@@ -1,4 +1,3 @@
-// src/TeacherLogin.js
 import React, { useEffect, useState } from 'react';
 import { signInWithEmailAndPassword, onAuthStateChanged, signOut } from 'firebase/auth';
 import { auth, database } from './firebase';
@@ -54,16 +53,16 @@ export default function TeacherLogin() {
         <div className={`toast ${toast ? 'show' : ''}`}>{toast}</div>
       </div>
 
-      <div style={{ padding: 16, maxWidth: 560, margin: '0 auto' }}>
-        <h1 style={{ marginTop: 8 }}>Teacher Login</h1>
+      <div className="page-narrow">
+        <h1>Teacher Login</h1>
 
         {authed ? (
-          <div style={{ marginTop: 12 }}>
-            <p style={{ color: '#374151' }}>
+          <div className="stack">
+            <p className="muted">
               You are signed in{role ? ` as ${role}` : ''}.
             </p>
-            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-              <button className="btn primary" onClick={() => navigate('/teacher/dashboard')}>
+            <div className="row gap">
+              <button className="btn btn--primary" onClick={() => navigate('/teacher/dashboard')}>
                 Go to Dashboard
               </button>
               <button className="btn" onClick={() => signOut(auth)}>
@@ -72,14 +71,13 @@ export default function TeacherLogin() {
             </div>
           </div>
         ) : (
-          <form onSubmit={doLogin} style={{ marginTop: 12, display: 'grid', gap: 10 }}>
+          <form className="form-vertical" onSubmit={doLogin}>
             <input
               type="email"
               placeholder="Email"
               autoComplete="email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              style={{ padding: '10px 12px', border: '1px solid #d1d5db', borderRadius: 10 }}
             />
             <input
               type="password"
@@ -87,10 +85,9 @@ export default function TeacherLogin() {
               autoComplete="current-password"
               value={password}
               onChange={(e) => setPw(e.target.value)}
-              style={{ padding: '10px 12px', border: '1px solid #d1d5db', borderRadius: 10 }}
             />
-            <button className="btn primary" type="submit">Log In</button>
-            <div style={{ color: '#6b7280', fontSize: 14 }}>
+            <button className="btn btn--primary" type="submit">Log In</button>
+            <div className="muted small">
               New teacher? Ask an admin to approve your account (or use the Apply page if enabled).
             </div>
           </form>
