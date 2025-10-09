@@ -21,7 +21,7 @@ export default function TeacherGamePage() {
   const { gameId } = useParams();
   const navigate = useNavigate();
 
-  // Narrow game meta (prevents re-fetching headlines on trades)
+  // Narrow meta prevents headlines reloading on trades
   const [meta, setMeta] = useState({ name: '', state: 'play', currentRound: 0 });
 
   const [headlines, setHeadlines] = useState([]);
@@ -43,7 +43,7 @@ export default function TeacherGamePage() {
   const [standings, setStandings] = useState([]);
   const [standingsRound, setStandingsRound] = useState(null);
 
-  /* ============== meta listeners ============== */
+  /* meta listeners */
   useEffect(() => {
     if (!gameId) return;
 
@@ -63,22 +63,20 @@ export default function TeacherGamePage() {
     return () => { offName(); offState(); offRound(); };
   }, [gameId]);
 
-  /* ============== teams & portfolios ============== */
+  /* teams & portfolios */
   useEffect(() => {
     if (!gameId) return;
     const tRef = ref(database, `games/${gameId}/teams`);
-    const unsub = onValue(tRef, (snap) => setTeams(snap.val() || {}), () => setTeams({}));
-    return unsub;
+    return onValue(tRef, (snap) => setTeams(snap.val() || {}), () => setTeams({}));
   }, [gameId]);
 
   useEffect(() => {
     if (!gameId) return;
     const pRef = ref(database, `games/${gameId}/portfolios`);
-    const unsub = onValue(pRef, (snap) => setPortfolios(snap.val() || {}), () => setPortfolios({}));
-    return unsub;
+    return onValue(pRef, (snap) => setPortfolios(snap.val() || {}), () => setPortfolios({}));
   }, [gameId]);
 
-  /* ============== commodities (one-time) ============== */
+  /* commodities (one-time) */
   useEffect(() => {
     let alive = true;
     (async () => {
@@ -92,7 +90,7 @@ export default function TeacherGamePage() {
     return () => { alive = false; };
   }, []);
 
-  /* ============== headlines by month (only when month changes) ============== */
+  /* headlines per month */
   useEffect(() => {
     setLoadingHL(true);
     setRevealed({});
@@ -109,7 +107,7 @@ export default function TeacherGamePage() {
     return () => { alive = false; };
   }, [meta.currentRound]);
 
-  /* ============== penalties (by month) ============== */
+  /* penalties by month */
   useEffect(() => {
     if (!gameId) return;
     const pRef = ref(database, `games/${gameId}/penalties/${meta.currentRound}`);
@@ -121,7 +119,6 @@ export default function TeacherGamePage() {
     });
   }, [gameId, meta.currentRound]);
 
-  /* ============== helpers ============== */
   const { currentRound, state } = meta;
   const monthLabel = (i) => `Month ${i + 1}`;
 
@@ -137,7 +134,6 @@ export default function TeacherGamePage() {
     return map;
   }, [headlines, revealed]);
 
-  /* ============== actions ============== */
   const openStandings = async () => {
     const snap = await get(ref(database, `games/${gameId}/standings/${meta.currentRound}`));
     const saved = snap.val();
@@ -280,7 +276,6 @@ export default function TeacherGamePage() {
 
   const toggleReveal = (idx) => setRevealed((r) => ({ ...r, [idx]: !r[idx] }));
 
-  /* ============== render ============== */
   return (
     <div>
       <BrandBar showLogout />
@@ -291,10 +286,10 @@ export default function TeacherGamePage() {
             Game: {meta.name} • {monthLabel(currentRound)} • State: <em>{state}</em>
           </div>
           <div className="teacher-topbar__actions">
-            <button className="btn btn--link" onClick={() => navigate('/teacher/dashboard')}>
+            <button className="btn btn--neutral" onClick={() => navigate('/teacher/dashboard')}>
               ← Back to Dashboard
             </button>
-            <button className="btn" onClick={openStandings} disabled={advancing}>
+            <button className="btn btn--neutral" onClick={openStandings} disabled={advancing}>
               Show Standings
             </button>
             <button className="btn btn--neutral" onClick={handleToggleReview} disabled={advancing}>
@@ -328,30 +323,28 @@ export default function TeacherGamePage() {
           {loadingHL ? (
             <span>Loading headlines…</span>
           ) : headlines.length ? (
-            <ul>
-              {headlines.map((h, i) => (
-                <li key={i}>{h.text}</li>
-              ))}
-            </ul>
+            <ul>{headlines.map((h, i) => <li key={i}>{h.text}</li>)}</ul>
           ) : (
             <span>No headlines this round.</span>
           )}
         </div>
       ) : (
         <>
-          {/* Reveal table with extra columns: Impact (S/D) + Δ next month */}
-          <div className="panel">
-            <h3>Headline review: {monthLabel(currentRound)}</h3>
+          {/* Headline reveal table */}
+          <div className="panel panel--reveal">
+            <h3 className="table-title table-title--reveal">
+              Headline Review — {monthLabel(currentRound)}
+            </h3>
             <div className="review-big">
               <table className="trade-table">
                 <thead>
                   <tr>
                     <th>#</th>
                     <th>Headline</th>
-                    <th className="hide-on-mobile">Commodity</th>
-                    <th className="hide-on-mobile">Impact (S/D)</th>
+                    <th>Commodity</th>
+                    <th>Impact (S/D)</th>
                     <th>Δ next month</th>
-                    <th>Reveal</th>
+                    <th>Show</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -359,27 +352,22 @@ export default function TeacherGamePage() {
                     const isRevealed = !!revealed[idx];
                     const eff = Array.isArray(h.effects) ? h.effects[0] : null;
 
-                    // commodity name (may be missing)
                     const commName = eff?.commodity || '';
-                    const comm = commodities.find(
-                      c => (c.name || '').toLowerCase() === commName.toLowerCase()
-                    );
-                    // prices for current & next month
+                    const comm = commodities.find(c => (c.name || '').toLowerCase() === commName.toLowerCase());
+
                     const pNow  = Number(comm?.prices?.[currentRound] ?? NaN);
                     const pNext = Number(comm?.prices?.[currentRound + 1] ?? NaN);
                     const pct = Number.isFinite(pNow) && Number.isFinite(pNext) && pNow > 0
                       ? ((pNext - pNow) / pNow) * 100
                       : null;
 
-                    // impact label (supply/demand ↑/↓), only if revealed
-                    const impactKey = eff?.impact || null; // 'demand_up' | 'demand_down' | 'supply_up' | 'supply_down'
+                    const impactKey = eff?.impact || null;
                     const impactLabel = !isRevealed || !impactKey
                       ? '—'
                       : impactKey.startsWith('demand')
                         ? `Demand ${impactKey.endsWith('up') ? '↑' : '↓'}`
                         : `Supply ${impactKey.endsWith('up') ? '↑' : '↓'}`;
 
-                    // delta label (only when revealed)
                     const deltaLabel = isRevealed && pct != null
                       ? `${pct >= 0 ? '+' : ''}${pct.toFixed(0)}%`
                       : '—';
@@ -388,12 +376,12 @@ export default function TeacherGamePage() {
                       <tr key={idx}>
                         <td>{idx + 1}</td>
                         <td>{h.text}</td>
-                        <td className="hide-on-mobile">{isRevealed ? (commName || '—') : '—'}</td>
-                        <td className="hide-on-mobile">{impactLabel}</td>
+                        <td>{isRevealed ? (commName || '—') : '—'}</td>
+                        <td>{impactLabel}</td>
                         <td>{deltaLabel}</td>
                         <td>
                           <button className="btn" onClick={() => toggleReveal(idx)} disabled={advancing}>
-                            {isRevealed ? 'Hide' : 'Reveal'}
+                            {isRevealed ? '🙈' : '👁️'}
                           </button>
                         </td>
                       </tr>
@@ -404,8 +392,11 @@ export default function TeacherGamePage() {
             </div>
           </div>
 
-          <div className="panel">
-            <h4>Review Positions for {monthLabel(currentRound)}</h4>
+          {/* Review positions table */}
+          <div className="panel panel--positions">
+            <h3 className="table-title table-title--positions">
+              Positions by Commodity — {monthLabel(currentRound)}
+            </h3>
             <div className="review-big">
               <ReviewTable
                 gameId={gameId}
@@ -417,9 +408,14 @@ export default function TeacherGamePage() {
             </div>
           </div>
 
-          <div className="panel review-big">
+          {/* Penalties table */}
+          <div className="panel panel--penalties review-big">
+            <h3 className="table-title table-title--penalties">
+              Penalties — {monthLabel(currentRound)}
+            </h3>
+
             <div className="penalties-bar">
-              <label htmlFor="fine-input"><strong>Penalty fine for {monthLabel(currentRound)} ($)</strong></label>
+              <label htmlFor="fine-input"><strong>Penalty fine ($)</strong></label>
               <input
                 id="fine-input"
                 type="number"
@@ -438,7 +434,7 @@ export default function TeacherGamePage() {
               <thead>
                 <tr>
                   <th>Team</th>
-                  <th>Penalties ({monthLabel(currentRound)})</th>
+                  <th>Penalties</th>
                   <th>Fine next month</th>
                 </tr>
               </thead>

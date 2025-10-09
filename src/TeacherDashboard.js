@@ -182,13 +182,18 @@ export default function TeacherDashboard() {
     };
     return (
       <div className="modal-backdrop" role="dialog" aria-modal="true" onClick={onClose}>
-        <div className="modal-card" onClick={(e) => e.stopPropagation()}>
+        <div className="modal-card review-big modal-card--xl" onClick={(e) => e.stopPropagation()}>
           <div className="modal-card__header">
             <h3>Join “{game.name}”</h3>
             <button className="btn btn--link" onClick={onClose}>Close</button>
           </div>
           <div className="modal-card__qr">
-            <QRCodeCanvas value={joinUrl} size={224} level="M" includeMargin />
+            <QRCodeCanvas
+              value={joinUrl}
+              size={Math.min(480, Math.floor(window.innerWidth * 0.6))}  /* ~360–480px on laptops */
+              level="M"
+              includeMargin
+            />
           </div>
           <div className="modal-card__link">{joinUrl}</div>
           <div className="modal-card__actions">
@@ -249,7 +254,7 @@ export default function TeacherDashboard() {
                     <div className="card__actions">
                       <button className="btn" onClick={() => navigate(`/teacher/game/${g.id}`)}>Manage</button>
                       <button className="btn btn--neutral" onClick={() => setQrForGame({ id: g.id, code: g.code, name: g.name })}>Show QR</button>
-                      <button className="btn" onClick={reseedHeadlines}>Re-seed Headlines</button>
+                      {/* <button className="btn" onClick={reseedHeadlines}>Re-seed Headlines</button> */}
                     </div>
                   </div>
 

@@ -413,3 +413,89 @@ input[type="number"] { -moz-appearance: textfield; }
   font-weight: 700;
   margin: 8px 12px;
 }
+
+/* Bigger QR modal */
+.modal-card--xl {
+  width: 820px;           /* was 360px */
+  max-width: 98vw;
+  padding: 24px;
+}
+
+/* Make text inside the QR modal scale like review/projector */
+.modal-card--xl.review-big h3 {
+  font-size: inherit;
+  line-height: inherit;
+}
+
+/* Keep the QR area centered and roomy */
+.modal-card__qr { display: grid; place-items: center; margin: 16px 0; }
+.modal-card__link { font-size: 14px; color:#6b7280; word-break: break-all; margin-bottom:12px; }
+
+/* ===== Review tables: distinct panels & titles ===== */
+
+/* Panel variants */
+.panel--reveal {
+  background: #f0f9ff;            /* light blue */
+  border-color: #bae6fd;
+}
+.panel--positions {
+  background: #f8fafc;            /* light slate */
+  border-color: #e5e7eb;
+}
+.panel--penalties {
+  background: #fff7ed;            /* light amber */
+  border-color: #fed7aa;
+}
+
+/* Title bar */
+.table-title {
+  margin: 0 0 12px;
+  font-weight: 800;
+  font-size: clamp(22px, 2.4vw, 28px);
+  line-height: 1.25;
+}
+.table-title--reveal    { color: #075985; }  /* cyan-800 */
+.table-title--positions { color: #0f172a; }  /* slate-900 */
+.table-title--penalties { color: #9a3412; }  /* orange-800 */
+/* Responsive visibility helpers for page sections */
+.desktop-only   { display: block; }
+.mobile-only    { display: none !important; }
+.hide-on-mobile { display: block; }
+
+@media (max-width: 900px) {
+  .desktop-only   { display: none !important; }
+  .mobile-only    { display: block !important; }
+  .hide-on-mobile { display: none !important; }
+}
+
+/* Headline reveal table: fixed layout with explicit column widths */
+.headline-table {
+  table-layout: fixed;
+  width: 100%;
+}
+
+/* Column widths (via <colgroup>) */
+.headline-table .col-idx      { width: 64px; }  /* row number */
+.headline-table .col-commodity{ width: 16%; }
+.headline-table .col-impact   { width: 18%; }
+.headline-table .col-delta    { width: 10%; }
+.headline-table .col-reveal   { width: 10%; }
+
+/* Let the headline text wrap and expand */
+.headline-table th:nth-child(2),
+.headline-table td:nth-child(2) {
+  white-space: normal !important;
+  word-break: break-word;
+}
+
+/* Keep the rest tidy (optional, can wrap if you prefer) */
+.headline-table th:not(:nth-child(2)),
+.headline-table td:not(:nth-child(2)) {
+  white-space: nowrap;
+}
+
+/* Smaller icon button for Reveal/Hide */
+.btn--icon {
+  padding: 6px 8px;
+  min-width: 0;
+}
