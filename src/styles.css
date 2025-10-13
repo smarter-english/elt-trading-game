@@ -48,7 +48,7 @@ html, body, #root {
   .brandbar .title { white-space: normal; line-height: 1.2; }
 }
 .brandbar .brand { color: #0a63a8; }
-.brandbar .brand-break { display: inline; } /* include if you want an optional line break */
+.brandbar .brand-break { display: inline; }
 .brandbar .spacer { flex: 1; }
 
 /* HUD sits under the BrandBar */
@@ -115,6 +115,9 @@ html, body, #root {
 .btn--danger  { background:#c33; color:#fff; border-color:#b22; }
 .btn--link    { background:transparent; border:0; color:#2563eb; text-decoration: underline; }
 
+/* Compact icon button (e.g., reveal eye) */
+.btn--icon { padding: 4px 6px; min-width: 0; font-size: 16px; }
+
 /* Scale the whole teacher page a bit larger by default */
 .teacher-big {
   font-size: clamp(18px, 2.2vw, 22px);
@@ -146,19 +149,34 @@ html, body, #root {
   font-size: clamp(26px, 3.2vw, 42px);
   line-height: 1.25;
 }
-.review-big .trade-table th,
+/* Body cells in review should inherit the big type */
 .review-big .trade-table td {
-  font-size: inherit !important;
-  line-height: inherit !important;
+  font-size: inherit;
+  line-height: inherit;
   padding: 12px 14px;
 }
-/* Inputs/buttons inside review inherit the big type */
-.review-big input,
-.review-big select,
-.review-big textarea,
-.review-big button {
-  font-size: inherit !important;
-  line-height: inherit !important;
+
+/* Headers keep line-height/padding, but no font-size here */
+.review-big .trade-table th {
+  line-height: inherit;
+  padding: 12px 14px;
+}
+/* Make ONLY the penalties controls inherit the big review type */
+.review-big .penalties-bar input,
+.review-big .penalties-stepper input {
+  font-size: inherit;
+  line-height: inherit;
+}
+
+/* The +/- stepper buttons in penalties also follow the big type */
+.review-big .penalties-stepper .stepperBtn {
+  font-size: inherit;
+  line-height: inherit;
+}
+
+/* Keep the reveal icon compact regardless of inheritance elsewhere */
+.review-big .headline-table .btn--icon {
+  font-size: 20px; /* adjust if you want smaller/larger icons */
 }
 
 /* =========================
@@ -276,10 +294,9 @@ html, body, #root {
 }
 
 @media (max-width: 360px) {
-.card-compact { --qtyWidth: 54px; --stepperSize: 34px; --btnH: 34px; }
-.card-compact .actions .btn { padding: 0 8px; font-size: 13px; }
+  .card-compact { --qtyWidth: 54px; --stepperSize: 34px; --btnH: 34px; }
+  .card-compact .actions .btn { padding: 0 8px; font-size: 13px; }
 }
-
 
 /* =========================
    PENALTIES: CUSTOM STEPPER
@@ -290,10 +307,10 @@ input[type="number"]::-webkit-outer-spin-button,
 input[type="number"]::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
 input[type="number"] { -moz-appearance: textfield; }
 
-/* Stepper group: [ - ][ input ][ + ]  — CONSOLIDATED */
+/* Stepper group: [ - ][ input ][ + ] — CONSOLIDATED */
 .penalties-stepper {
-  --stepSize: 40px;   /* taller than 36px */
-  --inputW: 72px;     /* much shorter input */
+  --stepSize: 40px;
+  --inputW: 72px;
   display: grid;
   grid-template-columns: var(--stepSize) var(--inputW) var(--stepSize);
   gap: 6px;
@@ -353,110 +370,40 @@ input[type="number"] { -moz-appearance: textfield; }
 /* =========================
    HEADLINES LIST PANEL (play mode)
    ========================= */
-.panel.headlines--play { /* consistent panel look for headlines block */ }
+.panel.headlines--play {}
 
 /* Standings modal: use projector scale and give it more room */
-.modal-card--wide {
-  width: 680px;           /* bigger than the default 360px */
-  max-width: 96vw;
-}
+.modal-card--wide { width: 680px; max-width: 96vw; }
 
 /* Inherit big type for headings too */
-.review-big h3 {
-  font-size: inherit;
-  line-height: inherit;
-  margin: 0 0 8px;
-}
-
-/* (already present, but repeating for clarity)
-   review-big makes table cells inherit the big size */
-.review-big .trade-table th,
-.review-big .trade-table td {
-  font-size: inherit !important;
-  line-height: inherit !important;
-  padding: 12px 14px;
-}
+.review-big h3 { font-size: inherit; line-height: inherit; margin: 0 0 8px; }
 
 /* ===== Emphasize BrandBar (bigger, clearer, still compact) ===== */
-.brandbar {
-  padding: 12px 16px;                      /* more breathing room */
-  border-bottom: 2px solid #e5e7eb;        /* a touch stronger */
-  box-shadow: 0 1px 4px rgba(0,0,0,.04);   /* subtle lift */
-}
-
-.brandbar .logo {
-  height: 32px;                            /* crisper on projectors */
-  width: auto;
-}
-@media (max-width: 640px) {
-  .brandbar .logo { height: 34px; }
-}
-
-.brandbar .title {
-  font-size: clamp(18px, 1.8vw, 24px);     /* bigger, responsive */
-  letter-spacing: .01em;
-}
-
-/* The BrandBar.js hook will re-measure height and refresh --brandbar-h automatically. */
-
+.brandbar { padding: 12px 16px; border-bottom: 2px solid #e5e7eb; box-shadow: 0 1px 4px rgba(0,0,0,.04); }
+.brandbar .logo { height: 32px; width: auto; }
+@media (max-width: 640px) { .brandbar .logo { height: 34px; } }
+.brandbar .title { font-size: clamp(18px, 1.8vw, 24px); letter-spacing: .01em; }
 
 /* ===== Emphasize HUD just below the bar ===== */
-.hud-sticky {
-  border-bottom: 1px solid #e5e7eb;
-  box-shadow: 0 1px 0 rgba(0,0,0,.06);     /* subtle divider */
-  background: #fff;
-}
-
-/* Bigger, bolder “Game • Month • Team” line */
-.hud-sticky .meta-line {
-  font-size: clamp(16px, 1.6vw, 22px);
-  font-weight: 700;
-  margin: 8px 12px;
-}
+.hud-sticky { border-bottom: 1px solid #e5e7eb; box-shadow: 0 1px 0 rgba(0,0,0,.06); background: #fff; }
+.hud-sticky .meta-line { font-size: clamp(16px, 1.6vw, 22px); font-weight: 700; margin: 8px 12px; }
 
 /* Bigger QR modal */
-.modal-card--xl {
-  width: 820px;           /* was 360px */
-  max-width: 98vw;
-  padding: 24px;
-}
-
-/* Make text inside the QR modal scale like review/projector */
-.modal-card--xl.review-big h3 {
-  font-size: inherit;
-  line-height: inherit;
-}
-
-/* Keep the QR area centered and roomy */
+.modal-card--xl { width: 820px; max-width: 98vw; padding: 24px; }
+.modal-card--xl.review-big h3 { font-size: inherit; line-height: inherit; }
 .modal-card__qr { display: grid; place-items: center; margin: 16px 0; }
 .modal-card__link { font-size: 14px; color:#6b7280; word-break: break-all; margin-bottom:12px; }
 
 /* ===== Review tables: distinct panels & titles ===== */
+.panel--reveal    { background: #f0f9ff; border-color: #bae6fd; }
+.panel--positions { background: #f8fafc; border-color: #e5e7eb; }
+.panel--penalties { background: #fff7ed; border-color: #fed7aa; }
 
-/* Panel variants */
-.panel--reveal {
-  background: #f0f9ff;            /* light blue */
-  border-color: #bae6fd;
-}
-.panel--positions {
-  background: #f8fafc;            /* light slate */
-  border-color: #e5e7eb;
-}
-.panel--penalties {
-  background: #fff7ed;            /* light amber */
-  border-color: #fed7aa;
-}
+.table-title { margin: 0 0 12px; font-weight: 800; font-size: clamp(22px, 2.4vw, 28px); line-height: 1.25; }
+.table-title--reveal    { color: #075985; }
+.table-title--positions { color: #0f172a; }
+.table-title--penalties { color: #9a3412; }
 
-/* Title bar */
-.table-title {
-  margin: 0 0 12px;
-  font-weight: 800;
-  font-size: clamp(22px, 2.4vw, 28px);
-  line-height: 1.25;
-}
-.table-title--reveal    { color: #075985; }  /* cyan-800 */
-.table-title--positions { color: #0f172a; }  /* slate-900 */
-.table-title--penalties { color: #9a3412; }  /* orange-800 */
 /* Responsive visibility helpers for page sections */
 .desktop-only   { display: block; }
 .mobile-only    { display: none !important; }
@@ -468,34 +415,43 @@ input[type="number"] { -moz-appearance: textfield; }
   .hide-on-mobile { display: none !important; }
 }
 
-/* Headline reveal table: fixed layout with explicit column widths */
-.headline-table {
-  table-layout: fixed;
-  width: 100%;
+/* =========================
+   HEADLINE REVIEW TABLE — single model + smooth scaling
+   ========================= */
+
+/* 1) The wrapper establishes a container (for container-query units) */
+.headline-table-wrap { container-type: inline-size; }
+
+/* 2) Fixed layout with one set of percentages */
+.headline-table { table-layout: fixed; width: 100%; }
+.headline-table .col-idx       { width: 3%; }
+.headline-table .col-commodity { width: 12%; }
+.headline-table .col-impact    { width: 11%; }
+.headline-table .col-delta     { width: 8%;  }
+.headline-table .col-reveal    { width: 6%;  }
+
+/* Headline wraps & uses leftover space; other cells stay compact */
+.headline-table .cell-headline { white-space: normal !important; word-break: break-word; }
+.headline-table th:not(.cell-headline),
+.headline-table td:not(.cell-headline) {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
-/* Column widths (via <colgroup>) */
-.headline-table .col-idx      { width: 64px; }  /* row number */
-.headline-table .col-commodity{ width: 16%; }
-.headline-table .col-impact   { width: 18%; }
-.headline-table .col-delta    { width: 10%; }
-.headline-table .col-reveal   { width: 10%; }
-
-/* Let the headline text wrap and expand */
-.headline-table th:nth-child(2),
-.headline-table td:nth-child(2) {
+/* 3) Header: wrap and slightly smaller than body */
+.review-big .headline-table thead th {
   white-space: normal !important;
   word-break: break-word;
+  line-height: 1.2;
 }
 
-/* Keep the rest tidy (optional, can wrap if you prefer) */
-.headline-table th:not(:nth-child(2)),
-.headline-table td:not(:nth-child(2)) {
-  white-space: nowrap;
-}
+/* 4) Smooth type scaling — fallback (older browsers) uses viewport width */
+.review-big .headline-table { font-size: clamp(20px, 2.6vw, 40px); }
+.review-big .headline-table thead th { font-size: clamp(20px, 2.2vw, 28px); }
 
-/* Smaller icon button for Reveal/Hide */
-.btn--icon {
-  padding: 6px 8px;
-  min-width: 0;
+/* Prefer container-based scaling when supported */
+@supports (font-size: 1cqw) {
+  .review-big .headline-table { font-size: clamp(20px, 2.6cqw, 40px); }
+  .review-big .headline-table thead th { font-weight: 700; font-size: clamp(20px, 2.2cqw, 28px); }
 }

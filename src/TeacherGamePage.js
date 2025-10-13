@@ -335,16 +335,24 @@ export default function TeacherGamePage() {
             <h3 className="table-title table-title--reveal">
               Headline Review — {monthLabel(currentRound)}
             </h3>
-            <div className="review-big">
-              <table className="trade-table">
+            <div className="review-big headline-table-wrap">
+              <table className="trade-table headline-table">
+                <colgroup>
+                  <col className="col-idx" />
+                  <col className="col-headline" />
+                  <col className="col-commodity" />
+                  <col className="col-impact" />
+                  <col className="col-delta" />
+                  <col className="col-reveal" />
+                </colgroup>
                 <thead>
                   <tr>
                     <th>#</th>
-                    <th>Headline</th>
-                    <th>Commodity</th>
-                    <th>Impact (S/D)</th>
-                    <th>Δ next month</th>
-                    <th>Show</th>
+                    <th className="cell-headline">Headline</th>
+                    <th className="cell-commodity">Commodity</th>
+                    <th>Impact</th>
+                    <th>Δ</th>
+                    <th>Show</th> {/* or: <span title="Show/Hide">👁️</span> */}
                   </tr>
                 </thead>
                 <tbody>
@@ -375,12 +383,18 @@ export default function TeacherGamePage() {
                     return (
                       <tr key={idx}>
                         <td>{idx + 1}</td>
-                        <td>{h.text}</td>
-                        <td>{isRevealed ? (commName || '—') : '—'}</td>
+                        <td className="cell-headline">{h.text}</td>
+                        <td className="cell-commodity">{isRevealed ? (commName || '—') : '—'}</td>
                         <td>{impactLabel}</td>
                         <td>{deltaLabel}</td>
                         <td>
-                          <button className="btn" onClick={() => toggleReveal(idx)} disabled={advancing}>
+                          <button
+                            className="btn btn--icon"
+                            onClick={() => toggleReveal(idx)}
+                            disabled={advancing}
+                            aria-label={isRevealed ? 'Hide' : 'Reveal'}
+                            title={isRevealed ? 'Hide' : 'Reveal'}
+                          >
                             {isRevealed ? '🙈' : '👁️'}
                           </button>
                         </td>
